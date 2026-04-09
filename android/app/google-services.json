@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "363977572616",
+    "project_id": "surat-store-b71bf",
+    "storage_bucket": "surat-store-b71bf.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:363977572616:android:9033d97befa1294e0aacbd",
+        "android_client_info": {
+          "package_name": "com.example.surat_store"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBSlTajClAlpBI0T9-_lnS1nGzmBZf-e-w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
