@@ -1,24 +1,39 @@
 import 'package:flutter/material.dart';
-import 'package:surat_store/ui/screens/home/home_page.dart';
+import 'package:get/get.dart';
+import 'package:firebase_core/firebase_core.dart';
 
-void main() {
+import 'controllers/auth_controller.dart';
+import 'controllers/order_controller.dart';
+import 'ui/screens/auth/login_page.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized(); // ✅ REQUIRED
+
+  await Firebase.initializeApp(); // ✅ MUST
+
+  // ✅ INIT CONTROLLERS ONCE
+  Get.put(AuthController(), permanent: true);
+  Get.put(OrderController());
+
   runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
+    return GetMaterialApp(
+      title: 'Surat Store',
+      debugShowCheckedModeBanner: false,
 
-        colorScheme: .fromSeed(seedColor: Colors.deepPurple),
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed( // ✅ FIXED
+          seedColor: Colors.deepPurple,
+        ),
       ),
-      home: const HomePage(),
+
+      home: const LoginScreen(),
     );
   }
 }
-
