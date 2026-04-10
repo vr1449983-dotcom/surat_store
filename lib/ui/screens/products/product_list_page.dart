@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:get/get_core/src/get_main.dart';
-import 'package:get/get_instance/src/extension_instance.dart';
-import 'package:get/get_navigation/src/extension_navigation.dart';
-import 'package:get/get_state_manager/src/rx_flutter/rx_obx_widget.dart';
-
+import 'package:get/get.dart';
 import '../../../controllers/product_controller.dart';
+import '../../../controllers/cart_controller.dart';
+import '../../widgets/product_card.dart';
+import '../cart/cart_page.dart';
 import 'add_product_page.dart';
 
 class ProductScreen extends StatelessWidget {
@@ -12,40 +11,51 @@ class ProductScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final controller = Get.put(ProductController());
+    final productController = Get.put(ProductController());
+    final cartController = Get.find<CartController>();
 
     return Scaffold(
       appBar: AppBar(
         title: const Text("Products"),
         actions: [
+          // 🛒 CART BUTTON
           IconButton(
             onPressed: () {
-              Get.to(() => AddProductScreen());
+              Get.to(() => const CartScreen());
+            },
+            icon: const Icon(Icons.shopping_cart_outlined),
+          ),
+
+          // ➕ ADD PRODUCT
+          IconButton(
+            onPressed: () {
+              Get.to(() => const AddProductScreen());
             },
             icon: const Icon(Icons.add),
-          )
+          ),
         ],
       ),
 
       body: Obx(() {
-        if (controller.products.isEmpty) {
-          return const Center(child: Text("No Products"));
+        if (productController.products.isEmpty) {
+          return const Center(child: Text("No Products Available"));
         }
 
-        return ListView.builder(
-          itemCount: controller.products.length,
+        return GridView.builder(
+          padding: const EdgeInsets.all(12),
+          itemCount: productController.products.length,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            crossAxisSpacing: 12,
+            mainAxisSpacing: 12,
+            childAspectRatio: 0.75,
+          ),
           itemBuilder: (context, index) {
-            final product = controller.products[index];
+            final product = productController.products[index];
 
-            return ListTile(
-              title: Text(product.name),
-              subtitle: Text("₹${product.price} | Stock: ${product.stockQty}"),
-              trailing: IconButton(
-                icon: const Icon(Icons.delete),
-                onPressed: () {
-                  controller.deleteProduct(product.pId!);
-                },
-              ),
+            return ProductCard(
+              product: product,
+              cartController: cartController,
             );
           },
         );

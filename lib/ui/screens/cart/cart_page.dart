@@ -1,74 +1,176 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:get/get_core/src/get_main.dart';
-import 'package:get/get_instance/src/extension_instance.dart';
-import 'package:get/get_rx/src/rx_types/rx_types.dart';
-import 'package:get/get_state_manager/src/rx_flutter/rx_obx_widget.dart';
-import 'package:get/get_state_manager/src/simple/get_controllers.dart';
-import '../../../data/models/product_model.dart';
-import '../../widgets/cart_card.dart';
+import 'package:get/get.dart';
+import '../../../controllers/cart_controller.dart';
 
-class CartController extends GetxController {
-  var cartItems = <ProductModel, int>{}.obs;
-
-  void addToCart(ProductModel product) {
-    if (cartItems.containsKey(product)) {
-      cartItems[product] = cartItems[product]! + 1;
-    } else {
-      cartItems[product] = 1;
-    }
-    cartItems.refresh();
-  }
-
-  void increase(ProductModel product) {
-    cartItems[product] = cartItems[product]! + 1;
-    cartItems.refresh();
-  }
-
-  void decrease(ProductModel product) {
-    if (cartItems[product]! > 1) {
-      cartItems[product] = cartItems[product]! - 1;
-    } else {
-      cartItems.remove(product);
-    }
-    cartItems.refresh();
-  }
-
-  double get total => cartItems.entries
-      .fold(0, (sum, e) => sum + (e.key.price * e.value));
-
-  double get gst => total * 0.05;
-}class CartScreen extends StatelessWidget {
+class CartScreen extends StatelessWidget {
   const CartScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final controller = Get.put(CartController());
+    final cart = Get.find<CartController>();
+    final theme = Theme.of(context);
+    final primary = theme.colorScheme.primary;
 
-    return Obx(() => Column(
-      children: [
-        Expanded(
-          child: ListView(
-            children: controller.cartItems.entries.map((e) {
-              return CartCard(
-                product: e.key,
-                quantity: e.value,
-                onIncrease: () => controller.increase(e.key),
-                onDecrease: () => controller.decrease(e.key),
-              );
-            }).toList(),
-          ),
-        ),
+    return Scaffold(
+      appBar: AppBar(title: const Text("My Cart")),
 
-        Text("Total: ₹${controller.total}"),
-        Text("GST (5%): ₹${controller.gst}"),
+      body: Obx(() {
+        if (cart.cartItems.isEmpty) {
+          return const Center(
+            child: Text("🛒 Your cart is empty"),
+          );
+        }
 
-        ElevatedButton(
-          onPressed: () {
+        return Column(
+          children: [
+            // 🛍 CART ITEMS
+            Expanded(
+              child: ListView.builder(
+                itemCount: cart.cartItems.length,
+                itemBuilder: (context, index) {
+                  final entry = cart.cartItems.entries.toList()[index];
+                  final product = entry.key;
+                  final qty = entry.value;
 
-          },
-          child: const Text("Proceed to Buy"),
-        )
-      ],
-    ));
+                  return Container(
+                    margin: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: theme.cardColor,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 6,
+                        )
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        // 🖼 IMAGE
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: product.imagePath.isNotEmpty &&
+                              File(product.imagePath).existsSync()
+                              ? Image.file(
+                            File(product.imagePath),
+                            height: 70,
+                            width: 70,
+                            fit: BoxFit.cover,
+                          )
+                              : Image.network(
+                            "https://via.placeholder.com/100",
+                            height: 70,
+                            width: 70,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+
+                        const SizedBox(width: 12),
+
+                        // 📦 DETAILS
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                product.name,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text("₹${product.price}"),
+                            ],
+                          ),
+                        ),
+
+                        // 🔢 QTY CONTROLS
+                        Row(
+                          children: [
+                            IconButton(
+                              onPressed: () => cart.decrease(product),
+                              icon: const Icon(Icons.remove_circle_outline),
+                            ),
+                            Text(
+                              qty.toString(),
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold),
+                            ),
+                            IconButton(
+                              onPressed: () => cart.increase(product),
+                              icon: const Icon(Icons.add_circle_outline),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+
+            // 💰 TOTAL SECTION
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: theme.cardColor,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 8,
+                  )
+                ],
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text("Total"),
+                      Text("₹${cart.total.toStringAsFixed(2)}"),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text("GST (5%)"),
+                      Text("₹${cart.gst.toStringAsFixed(2)}"),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // 🔥 CHECKOUT BUTTON
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Get.toNamed('/checkout');
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: primary,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        "Proceed to Checkout",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  )
+                ],
+              ),
+            )
+          ],
+        );
+      }),
+    );
   }
 }

@@ -15,42 +15,56 @@ class DBHelper {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: 2, // 🔥 increase version when schema changes
+
       onCreate: (db, version) async {
-        // PRODUCTS
-        await db.execute('''
-        CREATE TABLE products(
-          p_id INTEGER PRIMARY KEY AUTOINCREMENT,
-          name TEXT,
-          price REAL,
-          stock_qty INTEGER,
-          image_path TEXT,
-          is_synced INTEGER
-        )
-        ''');
+        await _createTables(db);
+      },
 
-        // ORDERS
-        await db.execute('''
-        CREATE TABLE orders(
-          o_id TEXT PRIMARY KEY,
-          customer_name TEXT,
-          total_amount REAL,
-          order_date TEXT,
-          is_synced INTEGER
-        )
-        ''');
-
-        // ORDER ITEMS
-        await db.execute('''
-        CREATE TABLE order_items(
-          item_id INTEGER PRIMARY KEY AUTOINCREMENT,
-          order_id TEXT,
-          product_id INTEGER,
-          qty_sold INTEGER,
-          price_at_sale REAL
-        )
-        ''');
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          // 🔥 Add new column safely
+          await db.execute(
+              "ALTER TABLE products ADD COLUMN description TEXT DEFAULT ''");
+        }
       },
     );
+  }
+
+  Future<void> _createTables(Database db) async {
+    // PRODUCTS
+    await db.execute('''
+      CREATE TABLE products(
+        p_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        price REAL NOT NULL,
+        stock_qty INTEGER NOT NULL,
+        image_path TEXT,
+        description TEXT,
+        is_synced INTEGER DEFAULT 0
+      )
+    ''');
+
+    // ORDERS
+    await db.execute('''
+      CREATE TABLE orders(
+        o_id TEXT PRIMARY KEY,
+        customer_name TEXT,
+        total_amount REAL,
+        order_date TEXT,
+        is_synced INTEGER DEFAULT 0
+      )
+    ''');
+
+    // ORDER ITEMS
+    await db.execute('''
+      CREATE TABLE order_items(
+        item_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        order_id TEXT,
+        product_id INTEGER,
+        qty_sold INTEGER,
+        price_at_sale REAL
+      )
+    ''');
   }
 }

@@ -1,9 +1,9 @@
 import '../../controllers/auth_controller.dart';
 import '../../data/models/order_model.dart';
 import '../../data/models/product_model.dart';
+import '../../data/models/order_item_model.dart';
 import '../db/db_helper.dart';
 import 'firestore_service.dart';
-
 
 class SyncService {
   final dbHelper = DBHelper();
@@ -15,32 +15,69 @@ class SyncService {
 
     if (userId == null) return;
 
-    // Sync Products
-    final products = await db.query('products', where: 'is_synced = ?', whereArgs: [0]);
-
-    for (var product in products) {
-      await firestore.uploadProduct(userId, ProductModel.fromMap(product));
-
-      await db.update(
+    try {
+      // =========================
+      // 🔥 1. SYNC PRODUCTS
+      // =========================
+      final products = await db.query(
         'products',
-        {'is_synced': 1},
-        where: 'p_id = ?',
-        whereArgs: [product['p_id']],
+        where: 'is_synced = ?',
+        whereArgs: [0],
       );
-    }
 
-    // Sync Orders
-    final orders = await db.query('orders', where: 'is_synced = ?', whereArgs: [0]);
+      for (var p in products) {
+        final product = ProductModel.fromMap(p);
 
-    for (var order in orders) {
-      await firestore.uploadOrder(userId, OrderModel.fromMap(order));
+        await firestore.uploadProduct(userId, product);
 
-      await db.update(
+        await db.update(
+          'products',
+          {'is_synced': 1},
+          where: 'p_id = ?',
+          whereArgs: [p['p_id']],
+        );
+      }
+
+      // =========================
+      // 🔥 2. SYNC ORDERS + ITEMS
+      // =========================
+      final orders = await db.query(
         'orders',
-        {'is_synced': 1},
-        where: 'o_id = ?',
-        whereArgs: [order['o_id']],
+        where: 'is_synced = ?',
+        whereArgs: [0],
       );
+
+      for (var o in orders) {
+        final order = OrderModel.fromMap(o);
+
+        // 🔥 GET ITEMS FROM LOCAL DB
+        final itemsData = await db.query(
+          'order_items',
+          where: 'order_id = ?',
+          whereArgs: [order.oId],
+        );
+
+        final items = itemsData
+            .map((e) => OrderItemModel.fromMap(e))
+            .toList();
+
+        // 🔥 UPLOAD ORDER + ITEMS (ATOMIC)
+        await firestore.uploadOrderWithItems(
+          userId,
+          order,
+          items,
+        );
+
+        // ✅ MARK ORDER AS SYNCED
+        await db.update(
+          'orders',
+          {'is_synced': 1},
+          where: 'o_id = ?',
+          whereArgs: [order.oId],
+        );
+      }
+    } catch (e) {
+      print("❌ Sync Error: $e");
     }
   }
 }
