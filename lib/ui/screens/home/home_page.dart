@@ -94,10 +94,7 @@ class HomePage extends StatelessWidget {
             // 🛍 PRODUCT GRID
             Expanded(
               child: Obx(() {
-                final products =
-                productController.filteredProducts.isEmpty
-                    ? productController.products
-                    : productController.filteredProducts;
+                final products = productController.filteredProducts;
 
                 if (products.isEmpty) {
                   return const Center(

@@ -15,7 +15,7 @@ class DBHelper {
 
     return await openDatabase(
       path,
-      version: 2, // 🔥 increase version when schema changes
+      version: 3, // 🔥 UPDATED
 
       onCreate: (db, version) async {
         await _createTables(db);
@@ -23,19 +23,23 @@ class DBHelper {
 
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
-          // 🔥 Add new column safely
           await db.execute(
               "ALTER TABLE products ADD COLUMN description TEXT DEFAULT ''");
+        }
+
+        if (oldVersion < 3) {
+          await db.execute(
+              "ALTER TABLE products ADD COLUMN doc_id TEXT");
         }
       },
     );
   }
 
   Future<void> _createTables(Database db) async {
-    // PRODUCTS
     await db.execute('''
       CREATE TABLE products(
         p_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        doc_id TEXT,
         name TEXT NOT NULL,
         price REAL NOT NULL,
         stock_qty INTEGER NOT NULL,
@@ -45,7 +49,6 @@ class DBHelper {
       )
     ''');
 
-    // ORDERS
     await db.execute('''
       CREATE TABLE orders(
         o_id TEXT PRIMARY KEY,
@@ -56,7 +59,6 @@ class DBHelper {
       )
     ''');
 
-    // ORDER ITEMS
     await db.execute('''
       CREATE TABLE order_items(
         item_id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -130,55 +130,58 @@ class ProductDetailPage extends StatelessWidget {
                 )
               ],
             ),
-            child: Row(
-              children: [
+            child: SafeArea(
 
-                // 🛒 ADD TO CART
-                Expanded(
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.orange,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
+              child: Row(
+                children: [
+
+                  // 🛒 ADD TO CART
+                  Expanded(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.orange,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      onPressed: product.stockQty == 0
+                          ? null
+                          : () {
+                        cartController.addToCart(product);
+                        Get.snackbar(
+                          "Success",
+                          "Added to cart",
+                          snackPosition: SnackPosition.BOTTOM,
+                        );
+                      },
+                      child: const Text("Add to Cart"),
                     ),
-                    onPressed: product.stockQty == 0
-                        ? null
-                        : () {
-                      cartController.addToCart(product);
-                      Get.snackbar(
-                        "Success",
-                        "Added to cart",
-                        snackPosition: SnackPosition.BOTTOM,
-                      );
-                    },
-                    child: const Text("Add to Cart"),
                   ),
-                ),
 
-                const SizedBox(width: 10),
+                  const SizedBox(width: 10),
 
-                // ⚡ BUY NOW
-                Expanded(
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
+                  // ⚡ BUY NOW
+                  Expanded(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      onPressed: product.stockQty == 0
+                          ? null
+                          : () {
+                        final buyNow = Get.put(BuyNowController());
+
+                        buyNow.setProduct(product);
+
+                        Get.to(
+                              () => const BuyNowCheckoutScreen(),
+                          transition: Transition.rightToLeft,
+                        );
+                      },
+                      child: const Text("Buy Now"),
                     ),
-                    onPressed: product.stockQty == 0
-                        ? null
-                        : () {
-                      final buyNow = Get.put(BuyNowController());
-
-                      buyNow.setProduct(product);
-
-                      Get.to(
-                            () => const BuyNowCheckoutScreen(),
-                        transition: Transition.rightToLeft,
-                      );
-                    },
-                    child: const Text("Buy Now"),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ],

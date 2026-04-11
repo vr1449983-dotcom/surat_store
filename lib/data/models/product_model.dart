@@ -19,11 +19,10 @@ class ProductModel {
     this.isSynced = 0,
   });
 
-  // ✅ FOR SQLITE + FIRESTORE
   Map<String, dynamic> toMap() {
     return {
       'p_id': pId,
-      'doc_id': docId, // 🔥 IMPORTANT
+      'doc_id': docId,
       'name': name,
       'price': price,
       'stock_qty': stockQty,
@@ -36,7 +35,7 @@ class ProductModel {
   factory ProductModel.fromMap(Map<String, dynamic> map) {
     return ProductModel(
       pId: map['p_id'],
-      docId: map['doc_id'], // 🔥 IMPORTANT
+      docId: map['doc_id'],
       name: map['name'] ?? '',
       price: (map['price'] ?? 0).toDouble(),
       stockQty: map['stock_qty'] ?? 0,

@@ -82,37 +82,39 @@ class BuyNowCheckoutScreen extends StatelessWidget {
             const Spacer(),
 
             // 💰 BILL
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: theme.cardColor,
-              ),
-              child: Column(
-                children: [
-
-                  _row("Subtotal", buyNow.total),
-                  _row("GST", buyNow.gst),
-
-                  const Divider(),
-
-                  _row("Total", buyNow.grandTotal, bold: true),
-
-                  const SizedBox(height: 10),
-
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        await _placeOrder(
-                          buyNow,
-                          auth,
-                          firestore,
-                        );
-                      },
-                      child: const Text("Place Order"),
-                    ),
-                  )
-                ],
+            SafeArea(
+              child: Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: theme.cardColor,
+                ),
+                child: Column(
+                  children: [
+              
+                    _row("Subtotal", buyNow.total),
+                    _row("GST", buyNow.gst),
+              
+                    const Divider(),
+              
+                    _row("Total", buyNow.grandTotal, bold: true),
+              
+                    const SizedBox(height: 10),
+              
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          await _placeOrder(
+                            buyNow,
+                            auth,
+                            firestore,
+                          );
+                        },
+                        child: const Text("Place Order"),
+                      ),
+                    )
+                  ],
+                ),
               ),
             )
           ],
