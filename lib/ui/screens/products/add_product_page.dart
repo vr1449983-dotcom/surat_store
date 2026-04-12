@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../controllers/product_controller.dart';
 import '../../../data/models/product_model.dart';
+import '../../../core/services/sync_manager.dart';
 
 class AddProductScreen extends StatefulWidget {
   final ProductModel? product;
@@ -26,6 +27,8 @@ class _AddProductScreenState extends State<AddProductScreen> {
   File? selectedImage;
   final picker = ImagePicker();
 
+  bool isLoading = false;
+
   @override
   void initState() {
     super.initState();
@@ -42,6 +45,15 @@ class _AddProductScreenState extends State<AddProductScreen> {
         selectedImage = File(p.imagePath);
       }
     }
+  }
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    priceController.dispose();
+    stockController.dispose();
+    descController.dispose();
+    super.dispose();
   }
 
   // ===========================
@@ -65,7 +77,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
   }
 
   // ===========================
-  // 🔽 BOTTOM SHEET
+  // 🔽 IMAGE OPTIONS
   // ===========================
   void showImagePickerOptions() {
     Get.bottomSheet(
@@ -88,7 +100,6 @@ class _AddProductScreenState extends State<AddProductScreen> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-
               const SizedBox(height: 20),
 
               Row(
@@ -112,8 +123,6 @@ class _AddProductScreenState extends State<AddProductScreen> {
                   ),
                 ],
               ),
-
-              const SizedBox(height: 10),
             ],
           ),
         ),
@@ -148,35 +157,69 @@ class _AddProductScreenState extends State<AddProductScreen> {
   // ===========================
   // 📦 SUBMIT
   // ===========================
-  void submit() {
+  Future<void> submit() async {
     final name = nameController.text.trim();
     final desc = descController.text.trim();
     final price = double.tryParse(priceController.text);
     final stock = int.tryParse(stockController.text);
 
-    if (name.isEmpty || desc.isEmpty || price == null || stock == null) {
-      Get.snackbar("Error", "All fields are required");
+    /// 🔥 VALIDATION
+    if (name.isEmpty || desc.isEmpty) {
+      Get.snackbar("Error", "Name & description required");
       return;
     }
 
-    final product = ProductModel(
-      pId: widget.product?.pId,
-      docId: widget.product?.docId,
-      name: name,
-      price: price,
-      stockQty: stock,
-      description: desc,
-      imagePath: selectedImage?.path ?? "",
-      isSynced: 0,
-    );
-
-    if (widget.product == null) {
-      controller.addProduct(product);
-    } else {
-      controller.updateProduct(product);
+    if (price == null || price <= 0) {
+      Get.snackbar("Error", "Enter valid price");
+      return;
     }
 
-    Get.back();
+    if (stock == null || stock < 0) {
+      Get.snackbar("Error", "Enter valid stock");
+      return;
+    }
+
+    /// 🔥 IMAGE REQUIRED ONLY FOR NEW PRODUCT
+    if (widget.product == null && selectedImage == null) {
+      Get.snackbar("Error", "Product image required");
+      return;
+    }
+
+    setState(() => isLoading = true);
+
+    try {
+      final product = ProductModel(
+        pId: widget.product?.pId,
+        docId: widget.product?.docId,
+        name: name,
+        price: price,
+        stockQty: stock,
+        description: desc,
+
+        /// 🔥 KEEP OLD IMAGE IF NOT CHANGED
+        imagePath: selectedImage?.path ??
+            widget.product?.imagePath ??
+            "",
+
+        isSynced: 0,
+      );
+
+      if (widget.product == null) {
+        await controller.addProduct(product);
+      } else {
+        await controller.updateProduct(product);
+      }
+
+      /// 🔥 AUTO SYNC
+      SyncManager().scheduleSync();
+
+      Get.back();
+      Get.snackbar("Success", "Product saved");
+    } catch (e) {
+      Get.snackbar("Error", "Something went wrong");
+    } finally {
+      setState(() => isLoading = false);
+    }
   }
 
   @override
@@ -186,14 +229,16 @@ class _AddProductScreenState extends State<AddProductScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.product == null ? "Add Product" : "Edit Product"),
+        title: Text(widget.product == null
+            ? "Add Product"
+            : "Edit Product"),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
 
-            /// 🖼 IMAGE PICKER
+            /// 🖼 IMAGE
             GestureDetector(
               onTap: showImagePickerOptions,
               child: Container(
@@ -226,7 +271,6 @@ class _AddProductScreenState extends State<AddProductScreen> {
               ),
             ),
 
-            /// REMOVE IMAGE
             if (selectedImage != null)
               TextButton(
                 onPressed: () {
@@ -242,28 +286,46 @@ class _AddProductScreenState extends State<AddProductScreen> {
             /// NAME
             TextField(
               controller: nameController,
-              decoration: const InputDecoration(labelText: "Product Name"),
+              decoration: const InputDecoration(
+                labelText: "Product Name",
+                prefixIcon: Icon(Icons.inventory),
+              ),
             ),
+
+            const SizedBox(height: 12),
 
             /// PRICE
             TextField(
               controller: priceController,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: "Price"),
+              decoration: const InputDecoration(
+                labelText: "Price",
+                prefixIcon: Icon(Icons.currency_rupee),
+              ),
             ),
+
+            const SizedBox(height: 12),
 
             /// STOCK
             TextField(
               controller: stockController,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: "Stock"),
+              decoration: const InputDecoration(
+                labelText: "Stock",
+                prefixIcon: Icon(Icons.layers),
+              ),
             ),
+
+            const SizedBox(height: 12),
 
             /// DESCRIPTION
             TextField(
               controller: descController,
               maxLines: 3,
-              decoration: const InputDecoration(labelText: "Description"),
+              decoration: const InputDecoration(
+                labelText: "Description",
+                prefixIcon: Icon(Icons.description),
+              ),
             ),
 
             const SizedBox(height: 25),
@@ -273,9 +335,13 @@ class _AddProductScreenState extends State<AddProductScreen> {
               width: double.infinity,
               height: 50,
               child: ElevatedButton(
-                onPressed: submit,
-                child: Text(
-                  widget.product == null ? "ADD PRODUCT" : "UPDATE PRODUCT",
+                onPressed: isLoading ? null : submit,
+                child: isLoading
+                    ? const CircularProgressIndicator()
+                    : Text(
+                  widget.product == null
+                      ? "ADD PRODUCT"
+                      : "UPDATE PRODUCT",
                 ),
               ),
             ),

@@ -11,7 +11,7 @@ class BottomNavController extends GetxController {
 
   final pages = [
     const HomePage(),
-    const DashboardScreen(),
+     DashboardScreen(),
     const CartScreen(),
     const OrderScreen(),
     const ProfileScreen(),

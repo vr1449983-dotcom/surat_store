@@ -4,36 +4,32 @@ import '../../data/models/order_model.dart';
 import '../../data/models/product_model.dart';
 
 class FirestoreService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  /// ✅ Lazy getter (IMPORTANT FIX)
+  FirebaseFirestore get _firestore => FirebaseFirestore.instance;
 
   // ===========================
   // 📦 PRODUCT SYNC
   // ===========================
   Future<ProductModel> uploadProduct(
       String userId, ProductModel product) async {
-    try {
-      final collection = _firestore
-          .collection('users')
-          .doc(userId)
-          .collection('products');
+    final collection = _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('products');
 
-      DocumentReference docRef;
+    DocumentReference docRef;
 
-      if (product.docId != null && product.docId!.isNotEmpty) {
-        docRef = collection.doc(product.docId);
-        await docRef.set(product.toJson(), SetOptions(merge: true));
-      } else {
-        docRef = await collection.add(product.toJson());
-      }
-
-      return product.copyWith(
-        docId: docRef.id,
-        isSynced: 1,
-      );
-    } catch (e) {
-      print("❌ FIRESTORE PRODUCT ERROR: $e");
-      throw Exception("Product upload failed");
+    if (product.docId != null && product.docId!.isNotEmpty) {
+      docRef = collection.doc(product.docId);
+      await docRef.set(product.toJson(), SetOptions(merge: true));
+    } else {
+      docRef = await collection.add(product.toJson());
     }
+
+    return product.copyWith(
+      docId: docRef.id,
+      isSynced: 1,
+    );
   }
 
   // ===========================
@@ -44,31 +40,27 @@ class FirestoreService {
       OrderModel order,
       List<OrderItemModel> items,
       ) async {
-    try {
-      final orderRef = _firestore
-          .collection('users')
-          .doc(userId)
-          .collection('orders')
-          .doc(order.oId);
 
-      final batch = _firestore.batch();
+    final orderRef = _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('orders')
+        .doc(order.oId);
 
-      batch.set(orderRef, order.toMap(), SetOptions(merge: true));
+    final batch = _firestore.batch();
 
-      for (var item in items) {
-        final itemRef = orderRef.collection('items').doc();
+    batch.set(orderRef, order.toMap(), SetOptions(merge: true));
 
-        batch.set(itemRef, {
-          'product_name': item.productName,
-          'qty_sold': item.qty,
-          'price_at_sale': item.price,
-        });
-      }
+    for (var item in items) {
+      final itemRef = orderRef.collection('items').doc();
 
-      await batch.commit();
-    } catch (e) {
-      print("❌ FIRESTORE ORDER ERROR: $e");
-      throw Exception("Order upload failed");
+      batch.set(itemRef, {
+        'product_name': item.productName,
+        'qty_sold': item.qty,
+        'price_at_sale': item.price,
+      });
     }
+
+    await batch.commit();
   }
 }

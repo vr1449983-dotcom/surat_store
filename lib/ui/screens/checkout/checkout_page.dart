@@ -4,7 +4,9 @@ import 'package:get/get.dart';
 
 import '../../../controllers/auth_controller.dart';
 import '../../../controllers/buy_now_controller.dart';
+import '../../../controllers/product_controller.dart';
 import '../../../core/db/db_helper.dart';
+import '../../../core/services/sync_manager.dart';
 
 class BuyNowCheckoutScreen extends StatelessWidget {
   const BuyNowCheckoutScreen({super.key});
@@ -14,6 +16,9 @@ class BuyNowCheckoutScreen extends StatelessWidget {
     final buyNow = Get.find<BuyNowController>();
     final auth = AuthController.to;
     final theme = Theme.of(context);
+
+    /// 🔥 Prevent multiple clicks
+    final isPlacingOrder = false.obs;
 
     return Scaffold(
       appBar: AppBar(title: const Text("Buy Now")),
@@ -28,7 +33,7 @@ class BuyNowCheckoutScreen extends StatelessWidget {
         return Column(
           children: [
 
-            /// PRODUCT CARD
+            /// 🛍 PRODUCT CARD
             Container(
               margin: const EdgeInsets.all(12),
               padding: const EdgeInsets.all(12),
@@ -55,26 +60,28 @@ class BuyNowCheckoutScreen extends StatelessWidget {
               ),
             ),
 
-            /// QUANTITY
-            Obx(() => Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                IconButton(
-                  onPressed: buyNow.decreaseQty,
-                  icon: const Icon(Icons.remove),
-                ),
-                Text("${buyNow.quantity.value}",
-                    style: const TextStyle(fontSize: 18)),
-                IconButton(
-                  onPressed: buyNow.increaseQty,
-                  icon: const Icon(Icons.add),
-                ),
-              ],
-            )),
+            /// 🔢 QUANTITY
+            SafeArea(
+              child: Obx(() => Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    onPressed: buyNow.decreaseQty,
+                    icon: const Icon(Icons.remove),
+                  ),
+                  Text("${buyNow.quantity.value}",
+                      style: const TextStyle(fontSize: 18)),
+                  IconButton(
+                    onPressed: buyNow.increaseQty,
+                    icon: const Icon(Icons.add),
+                  ),
+                ],
+              )),
+            ),
 
             const Spacer(),
 
-            /// BILL
+            /// 💰 BILL
             SafeArea(
               child: Container(
                 padding: const EdgeInsets.all(16),
@@ -90,15 +97,27 @@ class BuyNowCheckoutScreen extends StatelessWidget {
 
                     const SizedBox(height: 10),
 
-                    SizedBox(
+                    /// 🔥 PLACE ORDER BUTTON
+                    Obx(() => SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: () async {
-                          await _placeOrder(buyNow, auth);
+                        onPressed: isPlacingOrder.value
+                            ? null
+                            : () async {
+                          isPlacingOrder.value = true;
+
+                          await _placeOrder(
+                            buyNow,
+                            auth,
+                          );
+
+                          isPlacingOrder.value = false;
                         },
-                        child: const Text("Place Order"),
+                        child: isPlacingOrder.value
+                            ? const CircularProgressIndicator()
+                            : const Text("Place Order"),
                       ),
-                    )
+                    ))
                   ],
                 ),
               ),
@@ -125,7 +144,7 @@ class BuyNowCheckoutScreen extends StatelessWidget {
   }
 
   // ===========================
-  // 🔥 FIXED ORDER FLOW
+  // 🚀 FINAL ORDER FLOW
   // ===========================
   Future<void> _placeOrder(
       BuyNowController buyNow,
@@ -142,14 +161,7 @@ class BuyNowCheckoutScreen extends StatelessWidget {
     }
 
     final db = await DBHelper().db;
-
     final orderId = DateTime.now().millisecondsSinceEpoch.toString();
-
-    /// 🔄 LOADER
-    Get.dialog(
-      const Center(child: CircularProgressIndicator()),
-      barrierDismissible: false,
-    );
 
     try {
 
@@ -170,9 +182,9 @@ class BuyNowCheckoutScreen extends StatelessWidget {
         'price_at_sale': product.price,
       });
 
-      /// =========================
-      /// ✅ 2. UPDATE LOCAL STOCK
-      /// =========================
+      // =========================
+      // ✅ 2. UPDATE LOCAL STOCK
+      // =========================
       await db.update(
         'products',
         {
@@ -183,9 +195,9 @@ class BuyNowCheckoutScreen extends StatelessWidget {
         whereArgs: [product.pId],
       );
 
-      /// =========================
-      /// ✅ 3. FIRESTORE SYNC (SAFE)
-      /// =========================
+      // =========================
+      // ✅ 3. FIRESTORE (OPTIONAL)
+      // =========================
       if (product.docId != null && auth.currentShopId != null) {
 
         final firestore = FirebaseFirestore.instance;
@@ -210,7 +222,6 @@ class BuyNowCheckoutScreen extends StatelessWidget {
           'price': product.price,
         });
 
-        /// 🔥 CORRECT DOC ID
         final productRef = firestore
             .collection('users')
             .doc(auth.currentShopId)
@@ -224,14 +235,20 @@ class BuyNowCheckoutScreen extends StatelessWidget {
         await batch.commit();
       }
 
-      Get.back(); // close loader
+      // =========================
+      // 🔄 REFRESH UI
+      // =========================
+      Get.find<ProductController>().loadProducts();
+
+      // =========================
+      // 🔄 AUTO SYNC TRIGGER
+      // =========================
+      SyncManager().scheduleSync();
 
       Get.snackbar("Success 🎉", "Order placed");
-
-      Get.back(); // go back
+      Get.back();
 
     } catch (e) {
-      Get.back();
       Get.snackbar("Error", e.toString());
     }
   }

@@ -1,25 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:surat_store/ui/screens/splash/splash_page.dart';
 
 import 'controllers/auth_controller.dart';
 import 'controllers/cart_controller.dart';
 import 'controllers/order_controller.dart';
 import 'controllers/product_controller.dart';
-
+import 'core/services/sync_manager.dart';
+import 'ui/screens/splash/splash_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  /// ✅ STEP 1: Firebase FIRST
   await Firebase.initializeApp();
 
-  // ✅ INIT CONTROLLERS (ONLY ONCE)
+  /// ✅ STEP 2: Controllers
   Get.put(ProductController(), permanent: true);
   Get.put(AuthController(), permanent: true);
-  Get.put(OrderController());
-  Get.put(CartController());
+  Get.put(OrderController(), permanent: true);
+  Get.put(CartController(), permanent: true);
 
+  /// ✅ STEP 3: Sync AFTER Firebase
+  final syncManager = SyncManager();
+  syncManager.startListening();   // internet listener
+  syncManager.scheduleSync();    // initial sync
 
   runApp(const MyApp());
 }
