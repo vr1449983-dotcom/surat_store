@@ -7,7 +7,9 @@ import '../../../controllers/product_controller.dart';
 import '../../../data/models/product_model.dart';
 
 class AddProductScreen extends StatefulWidget {
-  const AddProductScreen({super.key});
+  final ProductModel? product;
+
+  const AddProductScreen({super.key, this.product});
 
   @override
   State<AddProductScreen> createState() => _AddProductScreenState();
@@ -22,48 +24,96 @@ class _AddProductScreenState extends State<AddProductScreen> {
   final controller = Get.find<ProductController>();
 
   File? selectedImage;
-
   final picker = ImagePicker();
 
-  // 📸 PICK IMAGE
-  Future<void> pickImage(ImageSource source) async {
-    final picked = await picker.pickImage(source: source, imageQuality: 70);
+  @override
+  void initState() {
+    super.initState();
 
-    if (picked != null) {
-      setState(() {
-        selectedImage = File(picked.path);
-      });
+    /// 🔥 PREFILL (EDIT MODE)
+    if (widget.product != null) {
+      final p = widget.product!;
+      nameController.text = p.name;
+      priceController.text = p.price.toString();
+      stockController.text = p.stockQty.toString();
+      descController.text = p.description;
+
+      if (p.imagePath.isNotEmpty) {
+        selectedImage = File(p.imagePath);
+      }
     }
   }
 
-  // 📦 BOTTOM SHEET
-  void showImagePicker() {
+  // ===========================
+  // 📸 PICK IMAGE
+  // ===========================
+  Future<void> pickImage(ImageSource source) async {
+    try {
+      final picked = await picker.pickImage(
+        source: source,
+        imageQuality: 70,
+      );
+
+      if (picked != null) {
+        setState(() {
+          selectedImage = File(picked.path);
+        });
+      }
+    } catch (e) {
+      Get.snackbar("Error", "Image picking failed");
+    }
+  }
+
+  // ===========================
+  // 🔽 BOTTOM SHEET
+  // ===========================
+  void showImagePickerOptions() {
     Get.bottomSheet(
       Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           color: Get.theme.cardColor,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(20),
+          ),
         ),
         child: SafeArea(
-          child: Wrap(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              ListTile(
-                leading: const Icon(Icons.camera_alt),
-                title: const Text("Camera"),
-                onTap: () {
-                  Get.back();
-                  pickImage(ImageSource.camera);
-                },
+              const Text(
+                "Select Image",
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-              ListTile(
-                leading: const Icon(Icons.photo),
-                title: const Text("Gallery"),
-                onTap: () {
-                  Get.back();
-                  pickImage(ImageSource.gallery);
-                },
+
+              const SizedBox(height: 20),
+
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _imageOption(
+                    icon: Icons.camera_alt,
+                    label: "Camera",
+                    onTap: () {
+                      Get.back();
+                      pickImage(ImageSource.camera);
+                    },
+                  ),
+                  _imageOption(
+                    icon: Icons.photo,
+                    label: "Gallery",
+                    onTap: () {
+                      Get.back();
+                      pickImage(ImageSource.gallery);
+                    },
+                  ),
+                ],
               ),
+
+              const SizedBox(height: 10),
             ],
           ),
         ),
@@ -71,31 +121,60 @@ class _AddProductScreenState extends State<AddProductScreen> {
     );
   }
 
+  Widget _imageOption({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade200,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, size: 28),
+          ),
+          const SizedBox(height: 8),
+          Text(label),
+        ],
+      ),
+    );
+  }
+
+  // ===========================
+  // 📦 SUBMIT
+  // ===========================
   void submit() {
     final name = nameController.text.trim();
     final desc = descController.text.trim();
     final price = double.tryParse(priceController.text);
     final stock = int.tryParse(stockController.text);
 
-    // ✅ VALIDATION
-    if (name.isEmpty ||
-        desc.isEmpty ||
-        price == null ||
-        stock == null ||
-        selectedImage == null) {
-      Get.snackbar("Error", "All fields including image are required");
+    if (name.isEmpty || desc.isEmpty || price == null || stock == null) {
+      Get.snackbar("Error", "All fields are required");
       return;
     }
 
-    controller.addProduct(
-      ProductModel(
-        name: name,
-        price: price,
-        stockQty: stock,
-        description: desc,
-        imagePath: selectedImage!.path,
-      ),
+    final product = ProductModel(
+      pId: widget.product?.pId,
+      docId: widget.product?.docId,
+      name: name,
+      price: price,
+      stockQty: stock,
+      description: desc,
+      imagePath: selectedImage?.path ?? "",
+      isSynced: 0,
     );
+
+    if (widget.product == null) {
+      controller.addProduct(product);
+    } else {
+      controller.updateProduct(product);
+    }
 
     Get.back();
   }
@@ -106,14 +185,17 @@ class _AddProductScreenState extends State<AddProductScreen> {
     final primary = theme.colorScheme.primary;
 
     return Scaffold(
-      appBar: AppBar(title: const Text("Add Product")),
+      appBar: AppBar(
+        title: Text(widget.product == null ? "Add Product" : "Edit Product"),
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            // 🖼 IMAGE PICKER
+
+            /// 🖼 IMAGE PICKER
             GestureDetector(
-              onTap: showImagePicker,
+              onTap: showImagePickerOptions,
               child: Container(
                 height: 160,
                 width: double.infinity,
@@ -144,114 +226,59 @@ class _AddProductScreenState extends State<AddProductScreen> {
               ),
             ),
 
+            /// REMOVE IMAGE
+            if (selectedImage != null)
+              TextButton(
+                onPressed: () {
+                  setState(() {
+                    selectedImage = null;
+                  });
+                },
+                child: const Text("Remove Image"),
+              ),
+
             const SizedBox(height: 20),
 
-            // 🧾 NAME
+            /// NAME
             TextField(
               controller: nameController,
-              decoration: InputDecoration(
-                labelText: "Product Name",
-                prefixIcon: Icon(Icons.inventory, color: primary),
-                filled: true,
-                fillColor:
-                theme.colorScheme.surfaceVariant.withOpacity(0.3),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-              ),
+              decoration: const InputDecoration(labelText: "Product Name"),
             ),
 
-            const SizedBox(height: 16),
-
-            // 💰 PRICE
+            /// PRICE
             TextField(
               controller: priceController,
               keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                labelText: "Price",
-                prefixIcon: Icon(Icons.currency_rupee, color: primary),
-                filled: true,
-                fillColor:
-                theme.colorScheme.surfaceVariant.withOpacity(0.3),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-              ),
+              decoration: const InputDecoration(labelText: "Price"),
             ),
 
-            const SizedBox(height: 16),
-
-            // 📦 STOCK
+            /// STOCK
             TextField(
               controller: stockController,
               keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                labelText: "Stock",
-                prefixIcon: Icon(Icons.layers, color: primary),
-                filled: true,
-                fillColor:
-                theme.colorScheme.surfaceVariant.withOpacity(0.3),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-              ),
+              decoration: const InputDecoration(labelText: "Stock"),
             ),
 
-            const SizedBox(height: 16),
-
-            // 📝 DESCRIPTION
+            /// DESCRIPTION
             TextField(
               controller: descController,
               maxLines: 3,
-              decoration: InputDecoration(
-                labelText: "Description",
-                prefixIcon: Icon(Icons.description, color: primary),
-                filled: true,
-                fillColor:
-                theme.colorScheme.surfaceVariant.withOpacity(0.3),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-              ),
+              decoration: const InputDecoration(labelText: "Description"),
             ),
 
             const SizedBox(height: 25),
 
-            // 🔥 ADD PRODUCT BUTTON
+            /// BUTTON
             SizedBox(
               width: double.infinity,
-              height: 55,
+              height: 50,
               child: ElevatedButton(
                 onPressed: submit,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: primary,
-                  elevation: 6,
-                  shadowColor: primary.withOpacity(0.4),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
-                    Icon(Icons.add_box_rounded),
-                    SizedBox(width: 10),
-                    Text(
-                      "ADD PRODUCT",
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  widget.product == null ? "ADD PRODUCT" : "UPDATE PRODUCT",
                 ),
               ),
-            )
+            ),
           ],
         ),
       ),

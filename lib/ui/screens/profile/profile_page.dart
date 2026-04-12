@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../controllers/auth_controller.dart';
+import '../../../core/services/sync_service.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -8,6 +9,7 @@ class ProfileScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final auth = AuthController.to;
+    final syncService = SyncService();
 
     return Scaffold(
       appBar: AppBar(
@@ -66,16 +68,26 @@ class ProfileScreen extends StatelessWidget {
 
               const SizedBox(height: 20),
 
-              // ⚙️ ACTIONS
+              // 🔄 SYNC DATA
               _actionTile(
-                icon: Icons.refresh,
-                title: "Refresh Data",
+                icon: Icons.sync,
+                title: "Sync Data",
+                color: Colors.blue,
                 onTap: () async {
-                  await auth.loadUserData();
-                  Get.snackbar("Success", "Data refreshed");
+                  Get.dialog(
+                    const Center(child: CircularProgressIndicator()),
+                    barrierDismissible: false,
+                  );
+
+                  await syncService.syncData();
+
+                  Get.back(); // close loader
+
+                  Get.snackbar("Success", "Data synced successfully");
                 },
               ),
 
+              // 🚪 LOGOUT
               _actionTile(
                 icon: Icons.logout,
                 title: "Logout",
@@ -118,7 +130,7 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  // ================= LOGOUT DIALOG =================
+  // ================= LOGOUT =================
 
   void _confirmLogout(AuthController auth) {
     Get.defaultDialog(

@@ -15,6 +15,8 @@ class SyncService {
 
     if (userId == null) return;
 
+    print("🔄 Sync Started...");
+
     try {
       // =========================
       // 🔥 1. SYNC PRODUCTS
@@ -26,16 +28,27 @@ class SyncService {
       );
 
       for (var p in products) {
-        final product = ProductModel.fromMap(p);
+        try {
+          final product = ProductModel.fromMap(p);
 
-        await firestore.uploadProduct(userId, product);
+          final updatedProduct =
+          await firestore.uploadProduct(userId, product);
 
-        await db.update(
-          'products',
-          {'is_synced': 1},
-          where: 'p_id = ?',
-          whereArgs: [p['p_id']],
-        );
+          // ✅ UPDATE LOCAL DB (IMPORTANT)
+          await db.update(
+            'products',
+            {
+              'is_synced': 1,
+              'doc_id': updatedProduct.docId,
+            },
+            where: 'p_id = ?',
+            whereArgs: [product.pId],
+          );
+
+          print("✅ Product Synced: ${product.name}");
+        } catch (e) {
+          print("❌ Product Sync Failed: $e");
+        }
       }
 
       // =========================
@@ -48,36 +61,41 @@ class SyncService {
       );
 
       for (var o in orders) {
-        final order = OrderModel.fromMap(o);
+        try {
+          final order = OrderModel.fromMap(o);
 
-        // 🔥 GET ITEMS FROM LOCAL DB
-        final itemsData = await db.query(
-          'order_items',
-          where: 'order_id = ?',
-          whereArgs: [order.oId],
-        );
+          final itemsData = await db.query(
+            'order_items',
+            where: 'order_id = ?',
+            whereArgs: [order.oId],
+          );
 
-        final items = itemsData
-            .map((e) => OrderItemModel.fromMap(e))
-            .toList();
+          final items = itemsData
+              .map((e) => OrderItemModel.fromMap(e))
+              .toList();
 
-        // 🔥 UPLOAD ORDER + ITEMS (ATOMIC)
-        await firestore.uploadOrderWithItems(
-          userId,
-          order,
-          items,
-        );
+          await firestore.uploadOrderWithItems(
+            userId,
+            order,
+            items,
+          );
 
-        // ✅ MARK ORDER AS SYNCED
-        await db.update(
-          'orders',
-          {'is_synced': 1},
-          where: 'o_id = ?',
-          whereArgs: [order.oId],
-        );
+          await db.update(
+            'orders',
+            {'is_synced': 1},
+            where: 'o_id = ?',
+            whereArgs: [order.oId],
+          );
+
+          print("✅ Order Synced: ${order.oId}");
+        } catch (e) {
+          print("❌ Order Sync Failed: $e");
+        }
       }
+
+      print("🎉 Sync Completed");
     } catch (e) {
-      print("❌ Sync Error: $e");
+      print("❌ Sync Fatal Error: $e");
     }
   }
 }

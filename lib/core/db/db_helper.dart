@@ -15,27 +15,42 @@ class DBHelper {
 
     return await openDatabase(
       path,
-      version: 3, // 🔥 UPDATED
+      version: 3,
 
       onCreate: (db, version) async {
         await _createTables(db);
       },
 
       onUpgrade: (db, oldVersion, newVersion) async {
+
+        // 🔥 VERSION 2 UPDATE
         if (oldVersion < 2) {
-          await db.execute(
-              "ALTER TABLE products ADD COLUMN description TEXT DEFAULT ''");
+          if (!await _columnExists(db, "products", "description")) {
+            await db.execute(
+                "ALTER TABLE products ADD COLUMN description TEXT DEFAULT ''");
+          }
         }
 
+        // 🔥 VERSION 3 UPDATE
         if (oldVersion < 3) {
-          await db.execute(
-              "ALTER TABLE products ADD COLUMN doc_id TEXT");
+          if (!await _columnExists(db, "products", "doc_id")) {
+            await db.execute(
+                "ALTER TABLE products ADD COLUMN doc_id TEXT");
+          }
         }
       },
     );
   }
 
+  // 🔍 CHECK COLUMN EXISTS (IMPORTANT)
+  Future<bool> _columnExists(
+      Database db, String table, String column) async {
+    final result = await db.rawQuery("PRAGMA table_info($table)");
+    return result.any((col) => col['name'] == column);
+  }
+
   Future<void> _createTables(Database db) async {
+
     await db.execute('''
       CREATE TABLE products(
         p_id INTEGER PRIMARY KEY AUTOINCREMENT,
