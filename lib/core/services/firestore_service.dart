@@ -7,7 +7,7 @@ class FirestoreService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // ===========================
-  // 📦 PRODUCT SYNC (SMART)
+  // 📦 PRODUCT SYNC
   // ===========================
   Future<ProductModel> uploadProduct(
       String userId, ProductModel product) async {
@@ -19,13 +19,10 @@ class FirestoreService {
 
       DocumentReference docRef;
 
-      // 🔥 UPDATE if docId exists
       if (product.docId != null && product.docId!.isNotEmpty) {
         docRef = collection.doc(product.docId);
-
         await docRef.set(product.toJson(), SetOptions(merge: true));
       } else {
-        // 🔥 CREATE new
         docRef = await collection.add(product.toJson());
       }
 
@@ -35,12 +32,12 @@ class FirestoreService {
       );
     } catch (e) {
       print("❌ FIRESTORE PRODUCT ERROR: $e");
-      rethrow;
+      throw Exception("Product upload failed");
     }
   }
 
   // ===========================
-  // 🧾 ORDER + ITEMS (BATCH)
+  // 🧾 ORDER + ITEMS
   // ===========================
   Future<void> uploadOrderWithItems(
       String userId,
@@ -56,24 +53,22 @@ class FirestoreService {
 
       final batch = _firestore.batch();
 
-      // ✅ ORDER
       batch.set(orderRef, order.toMap(), SetOptions(merge: true));
 
-      // ✅ ITEMS
       for (var item in items) {
         final itemRef = orderRef.collection('items').doc();
 
         batch.set(itemRef, {
           'product_name': item.productName,
-          'price': item.price,
-          'qty': item.qty,
+          'qty_sold': item.qty,
+          'price_at_sale': item.price,
         });
       }
 
       await batch.commit();
     } catch (e) {
       print("❌ FIRESTORE ORDER ERROR: $e");
-      rethrow;
+      throw Exception("Order upload failed");
     }
   }
 }

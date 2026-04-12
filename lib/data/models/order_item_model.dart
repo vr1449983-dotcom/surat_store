@@ -1,6 +1,6 @@
 class OrderItemModel {
-  final int? id; // local DB id
-  final String orderId; // 🔥 link to order
+  final int? id;
+  final String orderId;
   final String productName;
   final double price;
   final int qty;
@@ -13,24 +13,23 @@ class OrderItemModel {
     required this.qty,
   });
 
-  // 🔥 SQLITE + FIRESTORE
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
+      'item_id': id,
       'order_id': orderId,
-      'product_name': productName,
-      'price': price,
-      'qty': qty,
+      'product_id': null,
+      'qty_sold': qty,
+      'price_at_sale': price,
     };
   }
 
   factory OrderItemModel.fromMap(Map<String, dynamic> map) {
     return OrderItemModel(
-      id: map['id'],
+      id: map['item_id'],
       orderId: map['order_id'],
       productName: map['product_name'] ?? '',
-      price: (map['price'] ?? 0).toDouble(),
-      qty: map['qty'] ?? 0,
+      price: (map['price_at_sale'] ?? 0).toDouble(),
+      qty: map['qty_sold'] ?? 0,
     );
   }
 }

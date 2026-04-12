@@ -18,9 +18,7 @@ class SyncService {
     print("🔄 Sync Started...");
 
     try {
-      // =========================
-      // 🔥 1. SYNC PRODUCTS
-      // =========================
+      /// 🔥 PRODUCTS
       final products = await db.query(
         'products',
         where: 'is_synced = ?',
@@ -31,15 +29,14 @@ class SyncService {
         try {
           final product = ProductModel.fromMap(p);
 
-          final updatedProduct =
+          final updated =
           await firestore.uploadProduct(userId, product);
 
-          // ✅ UPDATE LOCAL DB (IMPORTANT)
           await db.update(
             'products',
             {
               'is_synced': 1,
-              'doc_id': updatedProduct.docId,
+              'doc_id': updated.docId,
             },
             where: 'p_id = ?',
             whereArgs: [product.pId],
@@ -51,9 +48,7 @@ class SyncService {
         }
       }
 
-      // =========================
-      // 🔥 2. SYNC ORDERS + ITEMS
-      // =========================
+      /// 🔥 ORDERS
       final orders = await db.query(
         'orders',
         where: 'is_synced = ?',

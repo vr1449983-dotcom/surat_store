@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 
 import '../../../controllers/auth_controller.dart';
 import '../../../controllers/buy_now_controller.dart';
+import '../../../core/db/db_helper.dart';
 
 class BuyNowCheckoutScreen extends StatelessWidget {
   const BuyNowCheckoutScreen({super.key});
@@ -12,7 +13,6 @@ class BuyNowCheckoutScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final buyNow = Get.find<BuyNowController>();
     final auth = AuthController.to;
-    final firestore = FirebaseFirestore.instance;
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -28,7 +28,7 @@ class BuyNowCheckoutScreen extends StatelessWidget {
         return Column(
           children: [
 
-            // 🛍 PRODUCT
+            /// PRODUCT CARD
             Container(
               margin: const EdgeInsets.all(12),
               padding: const EdgeInsets.all(12),
@@ -38,18 +38,16 @@ class BuyNowCheckoutScreen extends StatelessWidget {
               ),
               child: Row(
                 children: [
-
                   const Icon(Icons.shopping_bag, size: 50),
-
                   const SizedBox(width: 10),
 
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(product.name,
-                            style: theme.textTheme.titleMedium),
+                        Text(product.name),
                         Text("₹${product.price}"),
+                        Text("Stock: ${product.stockQty}"),
                       ],
                     ),
                   ),
@@ -57,58 +55,46 @@ class BuyNowCheckoutScreen extends StatelessWidget {
               ),
             ),
 
-            // 🔢 QUANTITY SELECTOR
-            Obx(() {
-              return Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-
-                  IconButton(
-                    onPressed: buyNow.decreaseQty,
-                    icon: const Icon(Icons.remove),
-                  ),
-
-                  Text("${buyNow.quantity.value}",
-                      style: const TextStyle(fontSize: 18)),
-
-                  IconButton(
-                    onPressed: buyNow.increaseQty,
-                    icon: const Icon(Icons.add),
-                  ),
-                ],
-              );
-            }),
+            /// QUANTITY
+            Obx(() => Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                IconButton(
+                  onPressed: buyNow.decreaseQty,
+                  icon: const Icon(Icons.remove),
+                ),
+                Text("${buyNow.quantity.value}",
+                    style: const TextStyle(fontSize: 18)),
+                IconButton(
+                  onPressed: buyNow.increaseQty,
+                  icon: const Icon(Icons.add),
+                ),
+              ],
+            )),
 
             const Spacer(),
 
-            // 💰 BILL
+            /// BILL
             SafeArea(
               child: Container(
                 padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: theme.cardColor,
-                ),
                 child: Column(
                   children: [
-              
+
                     _row("Subtotal", buyNow.total),
                     _row("GST", buyNow.gst),
-              
+
                     const Divider(),
-              
+
                     _row("Total", buyNow.grandTotal, bold: true),
-              
+
                     const SizedBox(height: 10),
-              
+
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
                         onPressed: () async {
-                          await _placeOrder(
-                            buyNow,
-                            auth,
-                            firestore,
-                          );
+                          await _placeOrder(buyNow, auth);
                         },
                         child: const Text("Place Order"),
                       ),
@@ -138,52 +124,115 @@ class BuyNowCheckoutScreen extends StatelessWidget {
     );
   }
 
-  // 🔥 ORDER + STOCK DEDUCTION
+  // ===========================
+  // 🔥 FIXED ORDER FLOW
+  // ===========================
   Future<void> _placeOrder(
       BuyNowController buyNow,
       AuthController auth,
-      FirebaseFirestore firestore,
       ) async {
+
     final product = buyNow.product.value!;
     final qty = buyNow.quantity.value;
 
+    /// ❌ STOCK CHECK
+    if (qty > product.stockQty) {
+      Get.snackbar("Error", "Not enough stock");
+      return;
+    }
+
+    final db = await DBHelper().db;
+
     final orderId = DateTime.now().millisecondsSinceEpoch.toString();
 
-    final orderRef = firestore
-        .collection('users')
-        .doc(auth.currentShopId)
-        .collection('orders')
-        .doc(orderId);
+    /// 🔄 LOADER
+    Get.dialog(
+      const Center(child: CircularProgressIndicator()),
+      barrierDismissible: false,
+    );
 
-    final batch = firestore.batch();
+    try {
 
-    batch.set(orderRef, {
-      'o_id': orderId,
-      'total_amount': buyNow.grandTotal,
-      'order_date': DateTime.now().toString(),
-    });
+      // =========================
+      // ✅ 1. SAVE ORDER LOCAL
+      // =========================
+      await db.insert('orders', {
+        'o_id': orderId,
+        'total_amount': buyNow.grandTotal,
+        'order_date': DateTime.now().toString(),
+        'is_synced': 0,
+      });
 
-    batch.set(orderRef.collection('items').doc(), {
-      'product_name': product.name,
-      'qty': qty,
-      'price': product.price,
-    });
+      await db.insert('order_items', {
+        'order_id': orderId,
+        'product_id': product.pId,
+        'qty_sold': qty,
+        'price_at_sale': product.price,
+      });
 
-    // 🔥 STOCK UPDATE
-    final productRef = firestore
-        .collection('users')
-        .doc(auth.currentShopId)
-        .collection('products')
-        .doc(product.pId.toString());
+      /// =========================
+      /// ✅ 2. UPDATE LOCAL STOCK
+      /// =========================
+      await db.update(
+        'products',
+        {
+          'stock_qty': product.stockQty - qty,
+          'is_synced': 0,
+        },
+        where: 'p_id = ?',
+        whereArgs: [product.pId],
+      );
 
-    batch.update(productRef, {
-      'stock_qty': FieldValue.increment(-qty),
-    });
+      /// =========================
+      /// ✅ 3. FIRESTORE SYNC (SAFE)
+      /// =========================
+      if (product.docId != null && auth.currentShopId != null) {
 
-    await batch.commit();
+        final firestore = FirebaseFirestore.instance;
 
-    Get.snackbar("Success 🎉", "Order placed");
+        final orderRef = firestore
+            .collection('users')
+            .doc(auth.currentShopId)
+            .collection('orders')
+            .doc(orderId);
 
-    Get.back();
+        final batch = firestore.batch();
+
+        batch.set(orderRef, {
+          'o_id': orderId,
+          'total_amount': buyNow.grandTotal,
+          'order_date': DateTime.now().toString(),
+        });
+
+        batch.set(orderRef.collection('items').doc(), {
+          'product_name': product.name,
+          'qty': qty,
+          'price': product.price,
+        });
+
+        /// 🔥 CORRECT DOC ID
+        final productRef = firestore
+            .collection('users')
+            .doc(auth.currentShopId)
+            .collection('products')
+            .doc(product.docId);
+
+        batch.update(productRef, {
+          'stock_qty': FieldValue.increment(-qty),
+        });
+
+        await batch.commit();
+      }
+
+      Get.back(); // close loader
+
+      Get.snackbar("Success 🎉", "Order placed");
+
+      Get.back(); // go back
+
+    } catch (e) {
+      Get.back();
+      Get.snackbar("Error", e.toString());
+    }
   }
 }

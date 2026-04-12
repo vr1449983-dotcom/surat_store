@@ -19,9 +19,6 @@ class ProductModel {
     this.isSynced = 0,
   });
 
-  // ===========================
-  // 🔁 COPY WITH (IMPORTANT)
-  // ===========================
   ProductModel copyWith({
     int? pId,
     String? docId,
@@ -44,11 +41,8 @@ class ProductModel {
     );
   }
 
-  // ===========================
-  // 📦 TO MAP (SQLite)
-  // ===========================
   Map<String, dynamic> toMap() {
-    final map = <String, dynamic>{
+    final map = {
       'doc_id': docId,
       'name': name,
       'price': price,
@@ -58,7 +52,6 @@ class ProductModel {
       'is_synced': isSynced,
     };
 
-    // ✅ only include ID if exists (important for insert)
     if (pId != null) {
       map['p_id'] = pId;
     }
@@ -66,51 +59,42 @@ class ProductModel {
     return map;
   }
 
-  // ===========================
-  // 📥 FROM MAP (SQLite)
-  // ===========================
   factory ProductModel.fromMap(Map<String, dynamic> map) {
     return ProductModel(
-      pId: map['p_id'] as int?,
-      docId: map['doc_id'] as String?,
-      name: map['name']?.toString() ?? '',
+      pId: map['p_id'],
+      docId: map['doc_id'],
+      name: map['name'] ?? '',
       price: (map['price'] is int)
           ? (map['price'] as int).toDouble()
           : (map['price'] ?? 0.0),
       stockQty: map['stock_qty'] ?? 0,
-      imagePath: map['image_path']?.toString() ?? '',
-      description: map['description']?.toString() ?? '',
+      imagePath: map['image_path'] ?? '',
+      description: map['description'] ?? '',
       isSynced: map['is_synced'] ?? 0,
     );
   }
 
-  // ===========================
-  // ☁️ TO JSON (Firebase)
-  // ===========================
+  /// 🔥 CLEAN FIRESTORE JSON (NO LOCAL FIELDS)
   Map<String, dynamic> toJson() {
     return {
-      'doc_id': docId,
       'name': name,
       'price': price,
       'stock_qty': stockQty,
       'image_path': imagePath,
       'description': description,
-      'is_synced': isSynced,
     };
   }
 
-  // ===========================
-  // ☁️ FROM JSON (Firebase)
-  // ===========================
-  factory ProductModel.fromJson(Map<String, dynamic> json, {String? docId}) {
+  factory ProductModel.fromJson(Map<String, dynamic> json,
+      {String? docId}) {
     return ProductModel(
-      docId: docId ?? json['doc_id'],
+      docId: docId,
       name: json['name'] ?? '',
       price: (json['price'] ?? 0).toDouble(),
       stockQty: json['stock_qty'] ?? 0,
       imagePath: json['image_path'] ?? '',
       description: json['description'] ?? '',
-      isSynced: json['is_synced'] ?? 1,
+      isSynced: 1,
     );
   }
 }
