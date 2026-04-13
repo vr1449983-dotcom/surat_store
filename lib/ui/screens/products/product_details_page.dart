@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:surat_store/ui/screens/checkout/checkout_page.dart';
+import 'package:surat_store/ui/screens/checkout/buy_now_checkout_page.dart';
 import '../../../controllers/buy_now_controller.dart';
 import '../../../controllers/cart_controller.dart';
 import '../../../data/models/product_model.dart';

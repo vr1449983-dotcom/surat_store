@@ -5,8 +5,7 @@ class DBHelper {
   static Database? _db;
 
   Future<Database> get db async {
-    if (_db != null) return _db!;
-    _db = await initDb();
+    _db ??= await initDb();
     return _db!;
   }
 
@@ -15,7 +14,7 @@ class DBHelper {
 
     return await openDatabase(
       path,
-      version: 3,
+      version: 6, // 🔥 UPDATED
 
       onCreate: (db, version) async {
         await _createTables(db);
@@ -23,30 +22,43 @@ class DBHelper {
 
       onUpgrade: (db, oldVersion, newVersion) async {
 
-        // 🔥 VERSION 2 UPDATE
-        if (oldVersion < 2) {
-          if (!await _columnExists(db, "products", "description")) {
-            await db.execute(
-                "ALTER TABLE products ADD COLUMN description TEXT DEFAULT ''");
-          }
+        if (oldVersion < 5) {
+          await db.execute('''
+            CREATE TABLE products_new(
+              p_id INTEGER PRIMARY KEY AUTOINCREMENT,
+              shop_id TEXT,
+              doc_id TEXT UNIQUE,
+              name TEXT,
+              price REAL,
+              stock_qty INTEGER,
+              image_path TEXT,
+              description TEXT,
+              is_synced INTEGER DEFAULT 0
+            )
+          ''');
+
+          await db.execute('''
+            INSERT OR REPLACE INTO products_new
+            SELECT * FROM products
+          ''');
+
+          await db.execute('DROP TABLE products');
+          await db.execute('ALTER TABLE products_new RENAME TO products');
         }
 
-        // 🔥 VERSION 3 UPDATE
-        if (oldVersion < 3) {
-          if (!await _columnExists(db, "products", "doc_id")) {
-            await db.execute(
-                "ALTER TABLE products ADD COLUMN doc_id TEXT");
-          }
+        if (oldVersion < 6) {
+          await db.execute('''
+            CREATE TABLE cart(
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              shop_id TEXT,
+              product_id INTEGER,
+              quantity INTEGER,
+              UNIQUE(shop_id, product_id) -- 🔥 prevent duplicate cart rows
+            )
+          ''');
         }
       },
     );
-  }
-
-  // 🔍 CHECK COLUMN EXISTS (IMPORTANT)
-  Future<bool> _columnExists(
-      Database db, String table, String column) async {
-    final result = await db.rawQuery("PRAGMA table_info($table)");
-    return result.any((col) => col['name'] == column);
   }
 
   Future<void> _createTables(Database db) async {
@@ -54,10 +66,11 @@ class DBHelper {
     await db.execute('''
       CREATE TABLE products(
         p_id INTEGER PRIMARY KEY AUTOINCREMENT,
-        doc_id TEXT,
-        name TEXT NOT NULL,
-        price REAL NOT NULL,
-        stock_qty INTEGER NOT NULL,
+        shop_id TEXT,
+        doc_id TEXT UNIQUE,
+        name TEXT,
+        price REAL,
+        stock_qty INTEGER,
         image_path TEXT,
         description TEXT,
         is_synced INTEGER DEFAULT 0
@@ -67,7 +80,7 @@ class DBHelper {
     await db.execute('''
       CREATE TABLE orders(
         o_id TEXT PRIMARY KEY,
-        customer_name TEXT,
+        shop_id TEXT,
         total_amount REAL,
         order_date TEXT,
         is_synced INTEGER DEFAULT 0
@@ -77,10 +90,21 @@ class DBHelper {
     await db.execute('''
       CREATE TABLE order_items(
         item_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        shop_id TEXT,
         order_id TEXT,
         product_id INTEGER,
         qty_sold INTEGER,
         price_at_sale REAL
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE cart(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        shop_id TEXT,
+        product_id INTEGER,
+        quantity INTEGER,
+        UNIQUE(shop_id, product_id)
       )
     ''');
   }

@@ -150,7 +150,6 @@ class BuyNowCheckoutScreen extends StatelessWidget {
       BuyNowController buyNow,
       AuthController auth,
       ) async {
-
     final product = buyNow.product.value!;
     final qty = buyNow.quantity.value;
 
@@ -163,8 +162,13 @@ class BuyNowCheckoutScreen extends StatelessWidget {
     final db = await DBHelper().db;
     final orderId = DateTime.now().millisecondsSinceEpoch.toString();
 
-    try {
+    /// 🔄 LOADER
+    Get.dialog(
+      const Center(child: CircularProgressIndicator()),
+      barrierDismissible: false,
+    );
 
+    try {
       // =========================
       // ✅ 1. SAVE ORDER LOCAL
       // =========================
@@ -196,10 +200,9 @@ class BuyNowCheckoutScreen extends StatelessWidget {
       );
 
       // =========================
-      // ✅ 3. FIRESTORE (OPTIONAL)
+      // ✅ 3. FIRESTORE
       // =========================
       if (product.docId != null && auth.currentShopId != null) {
-
         final firestore = FirebaseFirestore.instance;
 
         final orderRef = firestore
@@ -236,19 +239,27 @@ class BuyNowCheckoutScreen extends StatelessWidget {
       }
 
       // =========================
-      // 🔄 REFRESH UI
+      // 🔄 REFRESH + SYNC
       // =========================
-      Get.find<ProductController>().loadProducts();
-
-      // =========================
-      // 🔄 AUTO SYNC TRIGGER
-      // =========================
+      await Get.find<ProductController>().loadProducts();
       SyncManager().scheduleSync();
 
-      Get.snackbar("Success 🎉", "Order placed");
+      /// ✅ CLOSE LOADER
       Get.back();
 
+      /// 🎉 SUCCESS DIALOG + AUTO BACK
+      await Get.defaultDialog(
+        title: "Success 🎉",
+        middleText: "Order placed successfully",
+        textConfirm: "OK",
+        onConfirm: () {
+          Get.back(); // close dialog
+          Get.back(); // 🔥 back to product detail page
+        },
+      );
+
     } catch (e) {
+      Get.back();
       Get.snackbar("Error", e.toString());
     }
   }

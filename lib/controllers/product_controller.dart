@@ -1,7 +1,10 @@
 import 'package:get/get.dart';
 import 'package:sqflite/sqflite.dart';
+
 import '../core/db/db_helper.dart';
+import '../core/services/sync_manager.dart';
 import '../data/models/product_model.dart';
+import 'auth_controller.dart';
 
 class ProductController extends GetxController {
   final dbHelper = DBHelper();
@@ -14,7 +17,7 @@ class ProductController extends GetxController {
   RxString searchQuery = ''.obs;
   RxDouble maxPrice = 0.0.obs;
   RxString sortType = 'none'.obs;
-  RxBool onlyInStock = false.obs;
+  RxBool onlyInStock = false.obs; // ✅ KEEP FALSE (IMPORTANT)
 
   /// 🔄 LOADING
   RxBool isLoading = false.obs;
@@ -25,7 +28,7 @@ class ProductController extends GetxController {
 
     loadProducts();
 
-    /// 🔥 AUTO FILTER TRIGGERS (IMPORTANT)
+    /// 🔥 AUTO FILTER TRIGGERS
     everAll([
       products,
       searchQuery,
@@ -43,14 +46,23 @@ class ProductController extends GetxController {
       isLoading.value = true;
 
       final db = await dbHelper.db;
+      final userId = AuthController.to.currentShopId;
+
+      if (userId == null) return;
 
       final result = await db.query(
         'products',
+        where: 'shop_id = ?',
+        whereArgs: [userId],
         orderBy: 'p_id DESC',
       );
 
       products.value =
           result.map((e) => ProductModel.fromMap(e)).toList();
+
+      /// 🔥 FORCE FILTER REFRESH (IMPORTANT FIX)
+      applyFilters();
+
     } catch (e) {
       print("❌ LOAD ERROR: $e");
     } finally {
@@ -59,34 +71,47 @@ class ProductController extends GetxController {
   }
 
   // ===========================
-  // ➕ ADD PRODUCT (OPTIMIZED)
+  // ➕ ADD PRODUCT
   // ===========================
   Future<void> addProduct(ProductModel product) async {
     try {
       final db = await dbHelper.db;
+      final userId = AuthController.to.currentShopId;
 
-      final newProduct = product.copyWith(isSynced: 0);
+      if (userId == null) return;
 
       final id = await db.insert(
         'products',
-        newProduct.toMap(),
+        {
+          ...product.toMap(),
+          'shop_id': userId,
+          'is_synced': 0,
+        },
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
 
       /// 🔥 INSTANT UI UPDATE
       products.insert(
         0,
-        newProduct.copyWith(pId: id),
+        product.copyWith(
+          pId: id,
+          shopId: userId,
+          isSynced: 0,
+        ),
       );
 
-      print("✅ Product inserted ID: $id");
+      applyFilters(); // 🔥 IMPORTANT
+
+      /// 🔄 AUTO SYNC
+      SyncManager().scheduleSync();
+
     } catch (e) {
-      print("❌ INSERT ERROR: $e");
+      print("❌ ADD ERROR: $e");
     }
   }
 
   // ===========================
-  // ✏️ UPDATE PRODUCT (OPTIMIZED)
+  // ✏️ UPDATE PRODUCT
   // ===========================
   Future<void> updateProduct(ProductModel product) async {
     try {
@@ -103,7 +128,7 @@ class ProductController extends GetxController {
         whereArgs: [product.pId],
       );
 
-      /// 🔥 UPDATE LOCAL LIST
+      /// 🔥 UPDATE UI
       final index =
       products.indexWhere((p) => p.pId == product.pId);
 
@@ -111,14 +136,20 @@ class ProductController extends GetxController {
         products[index] = updatedProduct;
       }
 
+      applyFilters(); // 🔥 IMPORTANT
+
+      /// 🔄 AUTO SYNC
+      SyncManager().scheduleSync();
+
       print("✏️ Product updated: ${product.pId}");
+
     } catch (e) {
       print("❌ UPDATE ERROR: $e");
     }
   }
 
   // ===========================
-  // ❌ DELETE PRODUCT (OPTIMIZED)
+  // ❌ DELETE PRODUCT
   // ===========================
   Future<void> deleteProduct(int id) async {
     try {
@@ -133,14 +164,20 @@ class ProductController extends GetxController {
       /// 🔥 REMOVE FROM UI
       products.removeWhere((p) => p.pId == id);
 
+      applyFilters(); // 🔥 IMPORTANT
+
+      /// 🔄 AUTO SYNC
+      SyncManager().scheduleSync();
+
       print("🗑️ Deleted product: $id");
+
     } catch (e) {
       print("❌ DELETE ERROR: $e");
     }
   }
 
   // ===========================
-  // 🔍 FILTER LOGIC
+  // 🔍 FILTER LOGIC (SAFE FIX)
   // ===========================
   void applyFilters() {
     List<ProductModel> temp = List.from(products);
@@ -158,6 +195,7 @@ class ProductController extends GetxController {
     }
 
     /// 📦 STOCK FILTER
+    /// 🔥 IMPORTANT: DO NOT HIDE PRODUCTS AUTOMATICALLY
     if (onlyInStock.value) {
       temp = temp.where((p) => p.stockQty > 0).toList();
     }
@@ -193,6 +231,6 @@ class ProductController extends GetxController {
     searchQuery.value = '';
     maxPrice.value = 0;
     sortType.value = 'none';
-    onlyInStock.value = false;
+    onlyInStock.value = false; // 🔥 KEEP FALSE
   }
 }

@@ -28,9 +28,9 @@ class CartScreen extends StatelessWidget {
 
         return Column(
           children: [
-            // ===========================
-            // 🛍 CART ITEMS
-            // ===========================
+            /// ===========================
+            /// 🛍 CART ITEMS
+            /// ===========================
             Expanded(
               child: ListView.builder(
                 itemCount: cart.cartItems.length,
@@ -43,8 +43,8 @@ class CartScreen extends StatelessWidget {
                   final isMax = qty >= product.stockQty;
 
                   return Container(
-                    margin: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 6),
+                    margin:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       color: theme.cardColor,
@@ -82,13 +82,11 @@ class CartScreen extends StatelessWidget {
                         /// 📦 DETAILS
                         Expanded(
                           child: Column(
-                            crossAxisAlignment:
-                            CrossAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
                                 product.name,
-                                style: theme.textTheme.bodyMedium
-                                    ?.copyWith(
+                                style: theme.textTheme.bodyMedium?.copyWith(
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -111,30 +109,24 @@ class CartScreen extends StatelessWidget {
                         Row(
                           children: [
                             IconButton(
-                              onPressed: isMin
-                                  ? null
-                                  : () => cart.decrease(product),
+                              onPressed:
+                              isMin ? null : () => cart.decrease(product),
                               icon: Icon(
                                 Icons.remove_circle_outline,
-                                color:
-                                isMin ? Colors.grey : null,
+                                color: isMin ? Colors.grey : null,
                               ),
                             ),
-
                             Text(
                               qty.toString(),
                               style: const TextStyle(
                                   fontWeight: FontWeight.bold),
                             ),
-
                             IconButton(
-                              onPressed: isMax
-                                  ? null
-                                  : () => cart.increase(product),
+                              onPressed:
+                              isMax ? null : () => cart.increase(product),
                               icon: Icon(
                                 Icons.add_circle_outline,
-                                color:
-                                isMax ? Colors.grey : null,
+                                color: isMax ? Colors.grey : null,
                               ),
                             ),
                           ],
@@ -146,9 +138,9 @@ class CartScreen extends StatelessWidget {
               ),
             ),
 
-            // ===========================
-            // 💰 TOTAL + ORDER
-            // ===========================
+            /// ===========================
+            /// 💰 TOTAL + ORDER
+            /// ===========================
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -181,15 +173,12 @@ class CartScreen extends StatelessWidget {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: primary,
                         shape: RoundedRectangleBorder(
-                          borderRadius:
-                          BorderRadius.circular(12),
+                          borderRadius: BorderRadius.circular(12),
                         ),
                       ),
                       child: const Text(
                         "Place Order",
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ),
                   )
@@ -202,9 +191,9 @@ class CartScreen extends StatelessWidget {
     );
   }
 
-  // ===========================
-  // 💰 ROW
-  // ===========================
+  /// ===========================
+  /// 💰 ROW
+  /// ===========================
   Widget _row(String title, double value, {bool bold = false}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -213,22 +202,20 @@ class CartScreen extends StatelessWidget {
         Text(
           "₹${value.toStringAsFixed(2)}",
           style: TextStyle(
-            fontWeight:
-            bold ? FontWeight.bold : FontWeight.normal,
+            fontWeight: bold ? FontWeight.bold : FontWeight.normal,
           ),
         ),
       ],
     );
   }
 
-  // ===========================
-  // 🚀 DIRECT ORDER FUNCTION
-  // ===========================
+  /// ===========================
+  /// 🚀 PLACE ORDER (FINAL FIXED)
+  /// ===========================
   Future<void> _placeOrder(CartController cart) async {
     final db = await DBHelper().db;
     final auth = AuthController.to;
-    final orderId =
-    DateTime.now().millisecondsSinceEpoch.toString();
+    final orderId = DateTime.now().millisecondsSinceEpoch.toString();
 
     /// 🔄 LOADER
     Get.dialog(
@@ -310,8 +297,7 @@ class CartScreen extends StatelessWidget {
                 .doc(e.key.docId);
 
             batch.update(productRef, {
-              'stock_qty':
-              FieldValue.increment(-e.value),
+              'stock_qty': FieldValue.increment(-e.value),
             });
           }
         }
@@ -319,15 +305,26 @@ class CartScreen extends StatelessWidget {
         await batch.commit();
       }
 
-      /// 🔄 REFRESH + SYNC
-      Get.find<ProductController>().loadProducts();
+      /// 🔄 REFRESH
+      await Get.find<ProductController>().loadProducts();
       SyncManager().scheduleSync();
 
-      /// 🧹 CLEAR CART
-      cart.cartItems.clear();
+      /// 🧹 CLEAR CART (DB + MEMORY)
+      await cart.clearCart();
 
+      /// ✅ CLOSE LOADER
       Get.back();
-      Get.snackbar("Success 🎉", "Order placed");
+
+      /// 🎉 SUCCESS POPUP + NAVIGATION
+      await Get.defaultDialog(
+        title: "Success 🎉",
+        middleText: "Order placed successfully",
+        textConfirm: "OK",
+        onConfirm: () {
+          Get.back(); // close dialog
+          Get.back(); // 🔥 go back to product page
+        },
+      );
 
     } catch (e) {
       Get.back();

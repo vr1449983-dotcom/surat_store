@@ -2,10 +2,17 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:get/get.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqflite/sqflite.dart';
+
+import '../core/services/sync_manager.dart';
+import '../core/services/sync_service.dart';
+
 import '../ui/screens/auth/login_page.dart';
 import '../ui/screens/auth/register_page.dart';
 import '../ui/screens/navigation/bottom_navigation.dart';
+
 import 'order_controller.dart';
+import 'product_controller.dart';
 
 class AuthController extends GetxController {
   static AuthController get to => Get.find<AuthController>();
@@ -49,11 +56,9 @@ class AuthController extends GetxController {
 
       await _saveLoginSession(shopId);
 
+      await _afterLoginSetup(); // 🔥 IMPORTANT
+
       _clearPrefill();
-
-      await loadUserData();
-      _startOrderListener();
-
       _navigateToHome();
 
       _showSuccess("Account created successfully");
@@ -86,8 +91,7 @@ class AuthController extends GetxController {
 
       await _saveLoginSession(userCredential.user!.uid);
 
-      await loadUserData();
-      _startOrderListener();
+      await _afterLoginSetup(); // 🔥 IMPORTANT
 
       _navigateToHome();
 
@@ -96,6 +100,48 @@ class AuthController extends GetxController {
       _handleLoginError(e);
     } finally {
       _setLoading(false);
+    }
+  }
+
+  // ================= 🔥 AFTER LOGIN CORE =================
+  Future<void> _afterLoginSetup() async {
+    await loadUserData();
+
+    // ❌ REMOVE CLEAR DB BUG
+    // await _clearLocalDatabase();
+
+    // ✅ DOWNLOAD ONCE
+    await SyncService().downloadAllUserData();
+
+    // ✅ REALTIME SYNC START
+    SyncService().startRealtimeSync();
+
+    // 🔄 REFRESH UI
+    if (Get.isRegistered<ProductController>()) {
+      await Get.find<ProductController>().loadProducts();
+    }
+
+    // 🌐 AUTO SYNC
+    SyncManager().startListening();
+
+    print("✅ User environment ready");
+  }
+
+  // ================= 🔥 CLEAR LOCAL DB =================
+  Future<void> _clearLocalDatabase() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lastUser = prefs.getString('last_user_id');
+
+    if (lastUser != currentShopId) {
+      print("🧹 Clearing old user data...");
+
+      final db = await openDatabase('surat_store.db');
+
+      await db.delete('products');
+      await db.delete('orders');
+      await db.delete('order_items');
+
+      await prefs.setString('last_user_id', currentShopId!);
     }
   }
 
@@ -160,19 +206,11 @@ class AuthController extends GetxController {
     final uid = _auth.currentUser?.uid;
     if (uid == null) return;
 
-    try {
-      final doc = await _firestore.collection('users').doc(uid).get();
+    final doc = await _firestore.collection('users').doc(uid).get();
 
-      if (doc.exists) {
-        userName.value = doc['name'] ?? '';
-        userEmail.value = doc['email'] ?? '';
-
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('user_name', userName.value);
-        await prefs.setString('user_email', userEmail.value);
-      }
-    } catch (e) {
-      print("Error loading user data: $e");
+    if (doc.exists) {
+      userName.value = doc['name'] ?? '';
+      userEmail.value = doc['email'] ?? '';
     }
   }
 
@@ -206,49 +244,21 @@ class AuthController extends GetxController {
   }
 
   void _handleUserNotFound(String email, String password) {
-    Get.snackbar(
-      "Account Not Found",
-      "Please create a new account",
-      snackPosition: SnackPosition.TOP,
-    );
-
+    Get.snackbar("Account Not Found", "Please create a new account");
     prefillEmail.value = email;
     prefillPassword.value = password;
-
     Get.to(() => const RegisterScreen());
   }
 
   void _handleRegisterError(FirebaseAuthException e) {
-    String message = "Something went wrong";
-
-    if (e.code == 'email-already-in-use') {
-      message = "This email is already registered";
-    } else if (e.code == 'weak-password') {
-      message = "Password is too weak";
-    }
-
-    Get.snackbar("Register Failed", message,
-        snackPosition: SnackPosition.TOP);
+    Get.snackbar("Register Failed", e.message ?? "Error");
   }
 
   void _handleLoginError(FirebaseAuthException e) {
-    if (e.code == 'wrong-password' || e.code == 'invalid-credential') {
-      Get.snackbar(
-        "Login Failed",
-        "Wrong password. Please try again",
-        snackPosition: SnackPosition.TOP,
-      );
-    } else {
-      Get.snackbar(
-        "Login Failed",
-        e.message ?? "Something went wrong",
-        snackPosition: SnackPosition.TOP,
-      );
-    }
+    Get.snackbar("Login Failed", e.message ?? "Error");
   }
 
   void _showSuccess(String message) {
-    Get.snackbar("Success", message,
-        snackPosition: SnackPosition.TOP);
+    Get.snackbar("Success", message);
   }
 }

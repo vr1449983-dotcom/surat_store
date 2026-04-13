@@ -25,7 +25,7 @@ class BuyNowController extends GetxController {
   double get total =>
       (product.value?.price ?? 0) * quantity.value;
 
-  double get gst => total * 0.18;
+  double get gst => total * 0.05;
 
   double get grandTotal => total + gst;
 }

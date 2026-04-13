@@ -63,4 +63,19 @@ class FirestoreService {
 
     await batch.commit();
   }
+  Future<QuerySnapshot<Map<String, dynamic>>> getUserProducts(String userId) {
+    return _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('products')
+        .get();
+  }
+  Stream<QuerySnapshot<Map<String, dynamic>>> streamProducts(String userId) {
+    return _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('products')
+        .snapshots();
+  }
+
 }
