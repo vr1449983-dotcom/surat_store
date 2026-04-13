@@ -11,11 +11,13 @@ import '../ui/screens/auth/login_page.dart';
 import '../ui/screens/auth/register_page.dart';
 import '../ui/screens/navigation/bottom_navigation.dart';
 
+import 'cart_controller.dart';
 import 'order_controller.dart';
 import 'product_controller.dart';
 
 class AuthController extends GetxController {
   static AuthController get to => Get.find<AuthController>();
+
 
   // ================= DEPENDENCIES =================
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -105,28 +107,57 @@ class AuthController extends GetxController {
 
   // ================= 🔥 AFTER LOGIN CORE =================
   Future<void> _afterLoginSetup() async {
-    await loadUserData();
+    try {
+      // =========================
+      // 👤 LOAD USER DATA
+      // =========================
+      await loadUserData();
 
-    // ❌ REMOVE CLEAR DB BUG
-    // await _clearLocalDatabase();
+      // =========================
+      // ☁️ DOWNLOAD USER DATA (ONCE)
+      // =========================
+      await SyncService().downloadAllUserData();
 
-    // ✅ DOWNLOAD ONCE
-    await SyncService().downloadAllUserData();
+      // =========================
+      // 🔄 START REALTIME SYNC
+      // =========================
+      SyncService().startRealtimeSync();
 
-    // ✅ REALTIME SYNC START
-    SyncService().startRealtimeSync();
+      // =========================
+      // 📦 LOAD PRODUCTS FIRST (VERY IMPORTANT)
+      // =========================
+      if (Get.isRegistered<ProductController>()) {
+        await Get.find<ProductController>().loadProducts();
+      } else {
+        print("⚠️ ProductController not registered");
+      }
 
-    // 🔄 REFRESH UI
-    if (Get.isRegistered<ProductController>()) {
-      await Get.find<ProductController>().loadProducts();
+      // =========================
+      // 🛒 LOAD CART AFTER PRODUCTS
+      // =========================
+      if (Get.isRegistered<CartController>()) {
+        await Get.find<CartController>().loadCart();
+      } else {
+        print("⚠️ CartController not registered");
+      }
+
+      // =========================
+      // 📦 START ORDER LISTENER (OPTIONAL BUT GOOD)
+      // =========================
+      if (Get.isRegistered<OrderController>()) {
+        Get.find<OrderController>().startListeningOrders();
+      }
+
+      // =========================
+      // 🌐 AUTO SYNC MANAGER
+      // =========================
+      SyncManager().startListening();
+
+      print("✅ User environment ready (Products + Cart + Sync loaded)");
+    } catch (e) {
+      print("❌ Setup Error: $e");
     }
-
-    // 🌐 AUTO SYNC
-    SyncManager().startListening();
-
-    print("✅ User environment ready");
   }
-
   // ================= 🔥 CLEAR LOCAL DB =================
   Future<void> _clearLocalDatabase() async {
     final prefs = await SharedPreferences.getInstance();
