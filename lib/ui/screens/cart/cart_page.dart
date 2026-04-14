@@ -17,19 +17,27 @@ class CartScreen extends StatefulWidget {
 }
 
 class _CartScreenState extends State<CartScreen> {
+  static const primary = Colors.deepPurple;
+
   @override
   Widget build(BuildContext context) {
     final cart = Get.find<CartController>();
-    final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F7FB),
+      backgroundColor: const Color(0xFFF6F5FF),
 
+      /// 🎨 MODERN COLORED APPBAR
       appBar: AppBar(
-        title: const Text("My Cart"),
-        backgroundColor: Colors.transparent,
         elevation: 0,
+        backgroundColor: primary,
         centerTitle: true,
+        title: const Text(
+          "My Cart",
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
+        ),
       ),
 
       body: Obx(() {
@@ -40,12 +48,10 @@ class _CartScreenState extends State<CartScreen> {
         return Column(
           children: [
 
-            /// ===========================
             /// 🛍 CART LIST
-            /// ===========================
             Expanded(
               child: ListView.builder(
-                padding: const EdgeInsets.only(top: 8),
+                padding: const EdgeInsets.only(top: 10),
                 itemCount: cart.cartItems.length,
                 itemBuilder: (context, index) {
                   final entry = cart.cartItems.entries.toList()[index];
@@ -57,15 +63,15 @@ class _CartScreenState extends State<CartScreen> {
 
                   return Container(
                     margin: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 6),
+                        horizontal: 14, vertical: 6),
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(18),
+                      borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.04),
-                          blurRadius: 12,
+                          color: primary.withOpacity(0.06),
+                          blurRadius: 10,
                           offset: const Offset(0, 6),
                         )
                       ],
@@ -75,19 +81,19 @@ class _CartScreenState extends State<CartScreen> {
 
                         /// 🖼 IMAGE
                         ClipRRect(
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(12),
                           child: product.imagePath.isNotEmpty &&
                               File(product.imagePath).existsSync()
                               ? Image.file(
                             File(product.imagePath),
-                            height: 75,
-                            width: 75,
+                            height: 70,
+                            width: 70,
                             fit: BoxFit.cover,
                           )
                               : Image.network(
                             "https://via.placeholder.com/100",
-                            height: 75,
-                            width: 75,
+                            height: 70,
+                            width: 70,
                             fit: BoxFit.cover,
                           ),
                         ),
@@ -101,6 +107,8 @@ class _CartScreenState extends State<CartScreen> {
                             children: [
                               Text(
                                 product.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w600,
                                   fontSize: 15,
@@ -125,17 +133,18 @@ class _CartScreenState extends State<CartScreen> {
                           ),
                         ),
 
-                        /// 🔢 QTY CONTROL
+                        /// 🔢 QTY CONTROL (MODERN)
                         Container(
                           decoration: BoxDecoration(
-                            color: const Color(0xFFF1F3FF),
+                            color: const Color(0xFFF1EEFF),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Row(
                             children: [
                               IconButton(
-                                onPressed:
-                                isMin ? null : () => cart.decrease(product),
+                                onPressed: isMin
+                                    ? null
+                                    : () => cart.decrease(product),
                                 icon: const Icon(Icons.remove, size: 18),
                               ),
                               Text(
@@ -145,8 +154,9 @@ class _CartScreenState extends State<CartScreen> {
                                 ),
                               ),
                               IconButton(
-                                onPressed:
-                                isMax ? null : () => cart.increase(product),
+                                onPressed: isMax
+                                    ? null
+                                    : () => cart.increase(product),
                                 icon: const Icon(Icons.add, size: 18),
                               ),
                             ],
@@ -159,9 +169,7 @@ class _CartScreenState extends State<CartScreen> {
               ),
             ),
 
-            /// ===========================
-            /// 💰 TOTAL SECTION
-            /// ===========================
+            /// 💰 TOTAL SECTION (MODERN CARD)
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -170,8 +178,8 @@ class _CartScreenState extends State<CartScreen> {
                 const BorderRadius.vertical(top: Radius.circular(24)),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.06),
-                    blurRadius: 10,
+                    color: primary.withOpacity(0.1),
+                    blurRadius: 12,
                   )
                 ],
               ),
@@ -188,22 +196,22 @@ class _CartScreenState extends State<CartScreen> {
 
                   SizedBox(
                     width: double.infinity,
-                    height: 52,
+                    height: 50,
                     child: ElevatedButton(
                       onPressed: () async {
                         await _placeOrder(cart);
                       },
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF6C5CE7),
+                        backgroundColor: primary,
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(12),
                         ),
                       ),
                       child: const Text(
                         "Place Order",
                         style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
@@ -217,16 +225,14 @@ class _CartScreenState extends State<CartScreen> {
     );
   }
 
-  /// ===========================
   /// 🛒 EMPTY STATE
-  /// ===========================
   Widget _emptyState() {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.shopping_cart_outlined,
-              size: 80, color: Colors.grey.shade400),
+              size: 80, color: Colors.deepPurple.shade100),
           const SizedBox(height: 12),
           Text(
             "Your cart is empty",
@@ -240,27 +246,26 @@ class _CartScreenState extends State<CartScreen> {
     );
   }
 
-  /// ===========================
   /// 💰 ROW
-  /// ===========================
   Widget _row(String title, double value, {bool bold = false}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(title),
-        Text(
-          "₹${value.toStringAsFixed(2)}",
-          style: TextStyle(
-            fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(title),
+          Text(
+            "₹${value.toStringAsFixed(2)}",
+            style: TextStyle(
+              fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
-  /// ===========================
   /// 🚀 PLACE ORDER (UNCHANGED LOGIC)
-  /// ===========================
   Future<void> _placeOrder(CartController cart) async {
     final db = await DBHelper().db;
     final auth = AuthController.to;

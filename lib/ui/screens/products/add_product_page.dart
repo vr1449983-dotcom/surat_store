@@ -27,15 +27,12 @@ class _AddProductScreenState extends State<AddProductScreen> {
   final picker = ImagePicker();
 
   bool isLoading = false;
-
-  /// 🔥 track if user removed image manually
   bool isImageRemoved = false;
 
   @override
   void initState() {
     super.initState();
 
-    /// 🔥 PREFILL (EDIT MODE)
     if (widget.product != null) {
       final p = widget.product!;
       nameController.text = p.name;
@@ -58,74 +55,33 @@ class _AddProductScreenState extends State<AddProductScreen> {
     super.dispose();
   }
 
-  // ===========================
-  // 📸 PICK IMAGE
-  // ===========================
+  // ================= IMAGE PICK =================
   Future<void> pickImage(ImageSource source) async {
-    try {
-      final picked = await picker.pickImage(
-        source: source,
-        imageQuality: 70,
-      );
-
-      if (picked != null) {
-        setState(() {
-          selectedImage = File(picked.path);
-          isImageRemoved = false; // reset
-        });
-      }
-    } catch (e) {
-      Get.snackbar("Error", "Image picking failed");
+    final picked = await picker.pickImage(source: source, imageQuality: 70);
+    if (picked != null) {
+      setState(() {
+        selectedImage = File(picked.path);
+        isImageRemoved = false;
+      });
     }
   }
 
-  // ===========================
-  // 🔽 IMAGE OPTIONS
-  // ===========================
   void showImagePickerOptions() {
     Get.bottomSheet(
       Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: Get.theme.cardColor,
-          borderRadius: const BorderRadius.vertical(
-            top: Radius.circular(20),
-          ),
+          color: Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(25)),
         ),
         child: SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              const Text(
-                "Select Image",
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _imageOption(
-                    icon: Icons.camera_alt,
-                    label: "Camera",
-                    onTap: () {
-                      Get.back();
-                      pickImage(ImageSource.camera);
-                    },
-                  ),
-                  _imageOption(
-                    icon: Icons.photo,
-                    label: "Gallery",
-                    onTap: () {
-                      Get.back();
-                      pickImage(ImageSource.gallery);
-                    },
-                  ),
-                ],
-              ),
+              _imageOption(Icons.camera_alt, "Camera",
+                      () => pickImage(ImageSource.camera)),
+              _imageOption(Icons.photo, "Gallery",
+                      () => pickImage(ImageSource.gallery)),
             ],
           ),
         ),
@@ -133,40 +89,33 @@ class _AddProductScreenState extends State<AddProductScreen> {
     );
   }
 
-  Widget _imageOption({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
+  Widget _imageOption(IconData icon, String label, VoidCallback onTap) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: () {
+        Get.back();
+        onTap();
+      },
       child: Column(
         children: [
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade200,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, size: 28),
+          CircleAvatar(
+            radius: 28,
+            backgroundColor: const Color(0xFF6C5CE7).withOpacity(0.1),
+            child: Icon(icon, color: const Color(0xFF6C5CE7)),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Text(label),
         ],
       ),
     );
   }
 
-  // ===========================
-  // 📦 SUBMIT (🔥 FIXED)
-  // ===========================
+  // ================= SUBMIT =================
   Future<void> submit() async {
     final name = nameController.text.trim();
     final desc = descController.text.trim();
     final price = double.tryParse(priceController.text);
     final stock = int.tryParse(stockController.text);
 
-    /// 🔥 VALIDATION
     if (name.isEmpty || desc.isEmpty) {
       Get.snackbar("Error", "Name & description required");
       return;
@@ -182,7 +131,6 @@ class _AddProductScreenState extends State<AddProductScreen> {
       return;
     }
 
-    /// 🔥 IMAGE REQUIRED ONLY FOR NEW
     if (widget.product == null && selectedImage == null) {
       Get.snackbar("Error", "Product image required");
       return;
@@ -191,29 +139,25 @@ class _AddProductScreenState extends State<AddProductScreen> {
     setState(() => isLoading = true);
 
     try {
-      /// 🔥 IMAGE LOGIC FIX
       String imagePath = "";
 
       if (selectedImage != null) {
         imagePath = selectedImage!.path;
       } else if (isImageRemoved) {
-        imagePath = ""; // user removed image
+        imagePath = "";
       } else {
         imagePath = widget.product?.imagePath ?? "";
       }
 
       final product = ProductModel(
-        /// 🔥 KEEP IDS (VERY IMPORTANT)
         pId: widget.product?.pId,
         docId: widget.product?.docId,
         shopId: widget.product?.shopId,
-
         name: name,
         price: price,
         stockQty: stock,
         description: desc,
         imagePath: imagePath,
-
         isSynced: 0,
       );
 
@@ -233,132 +177,140 @@ class _AddProductScreenState extends State<AddProductScreen> {
     }
   }
 
+  // ================= UI =================
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final primary = theme.colorScheme.primary;
-
     return Scaffold(
+      backgroundColor: const Color(0xFFF6F7FB),
+
       appBar: AppBar(
-        title: Text(
-          widget.product == null ? "Add Product" : "Edit Product",
-        ),
+        title: Text(widget.product == null ? "Add Product" : "Edit Product"),
+        centerTitle: true,
       ),
+
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.all(16),
         child: Column(
           children: [
 
-            /// 🖼 IMAGE
-            GestureDetector(
-              onTap: showImagePickerOptions,
-              child: Container(
-                height: 160,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: primary.withOpacity(0.3)),
-                ),
-                child: selectedImage == null
-                    ? Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.add_a_photo,
-                        size: 40, color: primary),
-                    const SizedBox(height: 10),
-                    Text("Add Product Image",
-                        style: TextStyle(color: primary)),
-                  ],
-                )
-                    : ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: Image.file(
-                    selectedImage!,
-                    fit: BoxFit.cover,
+            /// ================= IMAGE CARD =================
+            Stack(
+              children: [
+                GestureDetector(
+                  onTap: showImagePickerOptions,
+                  child: Container(
+                    height: 200,
                     width: double.infinity,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          const Color(0xFF6C5CE7).withOpacity(0.2),
+                          const Color(0xFF8E7CFF).withOpacity(0.1),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: selectedImage == null
+                        ? Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: const [
+                        Icon(Icons.add_a_photo, size: 40),
+                        SizedBox(height: 8),
+                        Text("Tap to add image"),
+                      ],
+                    )
+                        : ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: Image.file(
+                        selectedImage!,
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                      ),
+                    ),
                   ),
                 ),
-              ),
-            ),
 
-            /// 🔥 REMOVE IMAGE BUTTON
-            if (selectedImage != null || widget.product != null)
-              TextButton(
-                onPressed: () {
-                  setState(() {
-                    selectedImage = null;
-                    isImageRemoved = true;
-                  });
-                },
-                child: const Text("Remove Image"),
-              ),
+                /// REMOVE BUTTON
+                if (selectedImage != null)
+                  Positioned(
+                    right: 10,
+                    top: 10,
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          selectedImage = null;
+                          isImageRemoved = true;
+                        });
+                      },
+                      child: const CircleAvatar(
+                        backgroundColor: Colors.black54,
+                        child: Icon(Icons.close, color: Colors.white),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
 
             const SizedBox(height: 20),
 
-            /// NAME
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(
-                labelText: "Product Name",
-                prefixIcon: Icon(Icons.inventory),
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            /// PRICE
-            TextField(
-              controller: priceController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: "Price",
-                prefixIcon: Icon(Icons.currency_rupee),
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            /// STOCK
-            TextField(
-              controller: stockController,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
-                labelText: "Stock",
-                prefixIcon: Icon(Icons.layers),
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            /// DESCRIPTION
-            TextField(
-              controller: descController,
-              maxLines: 3,
-              decoration: const InputDecoration(
-                labelText: "Description",
-                prefixIcon: Icon(Icons.description),
-              ),
-            ),
+            /// ================= FORM =================
+            _input(nameController, "Product Name", Icons.inventory),
+            _input(priceController, "Price", Icons.currency_rupee, isNumber: true),
+            _input(stockController, "Stock", Icons.layers, isNumber: true),
+            _input(descController, "Description", Icons.description, maxLines: 3),
 
             const SizedBox(height: 25),
 
-            /// BUTTON
+            /// ================= BUTTON =================
             SizedBox(
               width: double.infinity,
-              height: 50,
+              height: 52,
               child: ElevatedButton(
                 onPressed: isLoading ? null : submit,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF6C5CE7),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
                 child: isLoading
-                    ? const CircularProgressIndicator()
+                    ? const CircularProgressIndicator(color: Colors.white)
                     : Text(
-                  widget.product == null
-                      ? "ADD PRODUCT"
-                      : "UPDATE PRODUCT",
+                  widget.product == null ? "ADD PRODUCT" : "UPDATE PRODUCT",
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, letterSpacing: 1),
                 ),
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  /// ================= INPUT =================
+  Widget _input(
+      TextEditingController controller,
+      String label,
+      IconData icon, {
+        bool isNumber = false,
+        int maxLines = 1,
+      }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: TextField(
+        controller: controller,
+        keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+        maxLines: maxLines,
+        decoration: InputDecoration(
+          labelText: label,
+          prefixIcon: Icon(icon),
+          filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide.none,
+          ),
         ),
       ),
     );

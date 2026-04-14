@@ -18,7 +18,13 @@ class CartController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+
     loadCart();
+
+    /// 🔥 AUTO REFRESH WHEN PRODUCTS CHANGE
+    ever(Get.find<ProductController>().products, (_) {
+      loadCart();
+    });
   }
 
   // ===========================
@@ -26,9 +32,12 @@ class CartController extends GetxController {
   // ===========================
   Future<void> loadCart() async {
     await _loadLocalCart();
-    await _syncFromCloud(); // 🔥 multi-device support
+    await _syncFromCloud();
   }
 
+  // ===========================
+  // 📦 LOCAL LOAD (FIXED)
+  // ===========================
   Future<void> _loadLocalCart() async {
     final db = await dbHelper.db;
     final userId = AuthController.to.currentShopId;
@@ -50,6 +59,13 @@ class CartController extends GetxController {
 
       if (product != null) {
         cartItems[product] = item['quantity'] as int;
+      } else {
+        /// 🔥 REMOVE INVALID LOCAL ITEM
+        await db.delete(
+          'cart',
+          where: 'product_id = ? AND shop_id = ?',
+          whereArgs: [item['product_id'], userId],
+        );
       }
     }
 
@@ -57,7 +73,7 @@ class CartController extends GetxController {
   }
 
   // ===========================
-  // ☁️ SYNC FROM FIRESTORE
+  // ☁️ FIRESTORE SYNC (FIXED)
   // ===========================
   Future<void> _syncFromCloud() async {
     final userId = AuthController.to.currentShopId;
@@ -82,7 +98,11 @@ class CartController extends GetxController {
       if (product != null) {
         cartItems[product] = qty;
 
-        await _saveLocal(product, qty); // 🔄 keep local updated
+        /// 🔄 KEEP LOCAL IN SYNC
+        await _saveLocal(product, qty);
+      } else {
+        /// 🔥 REMOVE INVALID CLOUD ITEM
+        await doc.reference.delete();
       }
     }
 
@@ -90,7 +110,7 @@ class CartController extends GetxController {
   }
 
   // ===========================
-  // 💾 SAVE LOCAL + CLOUD
+  // 💾 SAVE LOCAL
   // ===========================
   Future<void> _saveLocal(ProductModel product, int qty) async {
     final db = await dbHelper.db;
@@ -107,6 +127,9 @@ class CartController extends GetxController {
     );
   }
 
+  // ===========================
+  // ☁️ SAVE CLOUD
+  // ===========================
   Future<void> _saveCloud(ProductModel product, int qty) async {
     final userId = AuthController.to.currentShopId;
     if (userId == null) return;
@@ -138,7 +161,7 @@ class CartController extends GetxController {
     cartItems.refresh();
 
     await _saveLocal(product, qty);
-    await _saveCloud(product, qty); // 🔥 sync
+    await _saveCloud(product, qty);
   }
 
   void increase(ProductModel product) => addToCart(product);
@@ -159,7 +182,7 @@ class CartController extends GetxController {
   }
 
   // ===========================
-  // ❌ REMOVE
+  // ❌ REMOVE SINGLE ITEM
   // ===========================
   Future<void> remove(ProductModel product) async {
     final db = await dbHelper.db;
@@ -183,20 +206,32 @@ class CartController extends GetxController {
   }
 
   // ===========================
+  // 🔥 REMOVE BY PRODUCT ID (CRITICAL FIX)
+  // ===========================
+  void removeProductById(int productId) {
+    cartItems.removeWhere((product, qty) => product.pId == productId);
+    cartItems.refresh();
+  }
+
+  // ===========================
   // 🧹 CLEAR CART
   // ===========================
   Future<void> clearCart() async {
     final db = await dbHelper.db;
     final userId = AuthController.to.currentShopId;
 
+    /// 🔥 FORCE CLEAR MEMORY FIRST
     cartItems.clear();
+    cartItems.refresh();
 
+    /// 🔥 DELETE LOCAL
     await db.delete(
       'cart',
       where: 'shop_id = ?',
       whereArgs: [userId],
     );
 
+    /// 🔥 DELETE CLOUD
     final snapshot = await firestore
         .collection('users')
         .doc(userId)
@@ -206,6 +241,10 @@ class CartController extends GetxController {
     for (var doc in snapshot.docs) {
       await doc.reference.delete();
     }
+
+    /// 🔥 FINAL REFRESH (IMPORTANT)
+    cartItems.clear();
+    cartItems.refresh();
   }
 
   // ===========================

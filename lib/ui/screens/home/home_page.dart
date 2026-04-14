@@ -12,11 +12,25 @@ class HomePage extends StatelessWidget {
     final productController = Get.find<ProductController>();
     final cartController = Get.find<CartController>();
 
-    final theme = Theme.of(context);
-    final primary = theme.colorScheme.primary;
+    /// 🎨 DEEP PURPLE THEME BASE
+    const primary = Colors.deepPurple;
 
     return Scaffold(
-      backgroundColor: theme.colorScheme.background,
+      backgroundColor: const Color(0xFFF6F5FF),
+
+      /// 🎨 APPBAR (DEEP PURPLE)
+      appBar: AppBar(
+        elevation: 0,
+        centerTitle: true,
+        backgroundColor: primary,
+        title: const Text(
+          "Surat Store",
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
+        ),
+      ),
 
       body: SafeArea(
         child: Column(
@@ -24,86 +38,111 @@ class HomePage extends StatelessWidget {
 
             const SizedBox(height: 10),
 
-            // 🔍 SEARCH + FILTER BUTTON
+            /// 🔍 SEARCH + FILTER
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
                 children: [
 
-                  // 🔍 SEARCH BAR
+                  /// SEARCH BAR
                   Expanded(
                     child: Container(
-                      height: 50,
+                      height: 44,
                       decoration: BoxDecoration(
-                        color: theme.cardColor,
-                        borderRadius: BorderRadius.circular(30),
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(14),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
+                            color: Colors.deepPurple.withOpacity(0.08),
                             blurRadius: 10,
-                          )
+                          ),
                         ],
                       ),
                       child: TextField(
                         onChanged: (value) {
                           productController.updateSearch(value);
                         },
+                        style: const TextStyle(fontSize: 14),
                         decoration: InputDecoration(
                           hintText: "Search products...",
-                          prefixIcon: Icon(Icons.search, color: primary),
+                          hintStyle: TextStyle(
+                              color: Colors.grey.shade500,
+                              fontSize: 13),
+                          prefixIcon: const Icon(Icons.search,
+                              color: Colors.deepPurple, size: 20),
                           suffixIcon: Obx(() {
-                            if (productController.searchQuery.value.isEmpty) {
+                            if (productController
+                                .searchQuery.value.isEmpty) {
                               return const SizedBox();
                             }
                             return IconButton(
-                              icon: const Icon(Icons.close),
+                              icon: const Icon(Icons.close, size: 18),
                               onPressed: () {
                                 productController.updateSearch('');
                               },
                             );
                           }),
                           border: InputBorder.none,
+                          contentPadding:
+                          const EdgeInsets.symmetric(vertical: 10),
                         ),
                       ),
                     ),
                   ),
 
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
 
-                  // 🎛 FILTER BUTTON
-                  GestureDetector(
+                  /// FILTER BUTTON
+                  InkWell(
                     onTap: () {
                       _openFilterSheet(context, productController);
                     },
+                    borderRadius: BorderRadius.circular(12),
                     child: Container(
-                      height: 50,
-                      width: 50,
+                      height: 44,
+                      width: 44,
                       decoration: BoxDecoration(
                         color: primary,
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: primary.withOpacity(0.3),
+                            blurRadius: 10,
+                          ),
+                        ],
                       ),
-                      child: const Icon(Icons.tune, color: Colors.white),
+                      child: const Icon(Icons.tune,
+                          color: Colors.white, size: 20),
                     ),
                   ),
                 ],
               ),
             ),
 
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
 
-            // 🛍 PRODUCT GRID
+            /// 🛍 PRODUCT GRID
             Expanded(
               child: Obx(() {
                 final products = productController.filteredProducts;
 
                 if (products.isEmpty) {
-                  return const Center(
-                    child: Text("No Products Found 😕"),
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: const [
+                        Icon(Icons.inventory_2_outlined,
+                            size: 60, color: Colors.grey),
+                        SizedBox(height: 10),
+                        Text("No Products Found",
+                            style: TextStyle(color: Colors.grey)),
+                      ],
+                    ),
                   );
                 }
 
                 return GridView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
                   itemCount: products.length,
                   gridDelegate:
                   const SliverGridDelegateWithFixedCrossAxisCount(
@@ -129,48 +168,57 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  // 🎛 FILTER SHEET WITH RESET
+  /// 🎛 FILTER SHEET
   void _openFilterSheet(
       BuildContext context, ProductController controller) {
-    final theme = Theme.of(context);
 
     Get.bottomSheet(
       Container(
         padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: theme.scaffoldBackgroundColor,
-          borderRadius: const BorderRadius.vertical(
-            top: Radius.circular(25),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(28),
           ),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
 
-            // HANDLE
-            Container(
-              height: 5,
-              width: 40,
-              margin: const EdgeInsets.only(bottom: 20),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade400,
-                borderRadius: BorderRadius.circular(10),
+            /// HANDLE
+            Center(
+              child: Container(
+                height: 5,
+                width: 40,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
             ),
 
-            // 💰 PRICE
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text("Max Price",
-                  style: theme.textTheme.titleMedium),
-            ),
-            const SizedBox(height: 10),
+            const Text("Filters",
+                style: TextStyle(
+                    fontSize: 18, fontWeight: FontWeight.bold)),
+
+            const SizedBox(height: 16),
+
+            /// PRICE
+            const Text("Max Price"),
+            const SizedBox(height: 8),
 
             TextField(
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 hintText: "Enter max price",
-                border: OutlineInputBorder(),
+                filled: true,
+                fillColor: const Color(0xFFF4F2FF),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
+                ),
               ),
               onChanged: (value) {
                 controller.updatePrice(
@@ -180,23 +228,23 @@ class HomePage extends StatelessWidget {
 
             const SizedBox(height: 20),
 
-            // 🔃 SORT
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Text("Sort By",
-                  style: theme.textTheme.titleMedium),
-            ),
+            /// SORT
+            const Text("Sort By"),
 
             Obx(() {
               return Column(
                 children: [
                   RadioListTile(
+                    activeColor: Colors.deepPurple,
+                    contentPadding: EdgeInsets.zero,
                     value: 'low_high',
                     groupValue: controller.sortType.value,
                     title: const Text("Low → High"),
                     onChanged: (v) => controller.updateSort(v!),
                   ),
                   RadioListTile(
+                    activeColor: Colors.deepPurple,
+                    contentPadding: EdgeInsets.zero,
                     value: 'high_low',
                     groupValue: controller.sortType.value,
                     title: const Text("High → Low"),
@@ -206,39 +254,43 @@ class HomePage extends StatelessWidget {
               );
             }),
 
-            // 📦 STOCK
+            /// STOCK
             Obx(() {
               return SwitchListTile(
+                activeColor: Colors.deepPurple,
+                contentPadding: EdgeInsets.zero,
                 value: controller.onlyInStock.value,
                 title: const Text("In Stock Only"),
                 onChanged: controller.toggleStock,
               );
             }),
 
-            const SizedBox(height: 10),
+            const SizedBox(height: 14),
 
-            // 🔥 RESET + APPLY BUTTONS
+            /// BUTTONS
             Row(
               children: [
-
-                // RESET
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () {
-                      controller.resetFilters();
-                    },
+                    onPressed: controller.resetFilters,
+                    style: OutlinedButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
                     child: const Text("Reset"),
                   ),
                 ),
-
                 const SizedBox(width: 10),
-
-                // APPLY
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () {
-                      Get.back();
-                    },
+                    onPressed: () => Get.back(),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.deepPurple,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
                     child: const Text("Apply"),
                   ),
                 ),

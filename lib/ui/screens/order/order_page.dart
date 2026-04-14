@@ -1,9 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:get/get_core/src/get_main.dart';
-import 'package:get/get_instance/src/extension_instance.dart';
-import 'package:get/get_navigation/src/extension_navigation.dart';
-import 'package:get/get_state_manager/src/rx_flutter/rx_obx_widget.dart';
+import 'package:get/get.dart';
 
 import '../../../controllers/order_controller.dart';
 import '../../widgets/order_card.dart';
@@ -18,33 +15,71 @@ class OrderScreen extends StatelessWidget {
 
     controller.startListeningOrders();
 
+    const primary = Colors.deepPurple;
+
     return Scaffold(
+      backgroundColor: const Color(0xFFF6F5FF),
+
+      /// 🎨 COLORED APPBAR
       appBar: AppBar(
-        title: const Text("Orders"),
+        elevation: 0,
+        backgroundColor: primary,
         centerTitle: true,
+        title: const Text(
+          "Orders",
+          style: TextStyle(
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
+        ),
       ),
+
       body: Obx(() {
         if (controller.orders.isEmpty) {
-          return const Center(child: Text("No Orders Found"));
+          return _emptyState();
         }
 
         return ListView.builder(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           itemCount: controller.orders.length,
           itemBuilder: (context, index) {
             final order = controller.orders[index];
 
-            return OrderCard(
-              order: order,
-              onTap: () {
-                Get.to(() => OrderDetailsScreen(
-                  orderId: order.oId, // ✅ FIXED
-                ));
-              },
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: OrderCard(
+                order: order,
+                onTap: () {
+                  Get.to(() => OrderDetailsScreen(
+                    orderId: order.oId,
+                  ));
+                },
+              ),
             );
           },
         );
       }),
+    );
+  }
+
+  /// 📭 EMPTY STATE (MODERN)
+  Widget _emptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.receipt_long_outlined,
+              size: 70, color: Colors.deepPurple.shade100),
+          const SizedBox(height: 12),
+          Text(
+            "No Orders Found",
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.grey.shade600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -292,4 +292,22 @@ class AuthController extends GetxController {
   void _showSuccess(String message) {
     Get.snackbar("Success", message);
   }
+  Future<void> updateUserName(String newName) async {
+    final userId = currentShopId;
+    if (userId == null) return;
+
+    userName.value = newName;
+
+    /// 🔥 UPDATE FIRESTORE
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .set({
+      'name': newName,
+    }, SetOptions(merge: true));
+
+    /// 🔥 UPDATE LOCAL (SharedPreferences)
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('user_name', newName);
+  }
 }
