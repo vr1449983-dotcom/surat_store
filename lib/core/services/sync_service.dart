@@ -9,7 +9,7 @@ class SyncService {
   final firestore = FirestoreService();
 
   // ===========================
-  // ⬇️ DOWNLOAD (FIXED)
+  // ⬇️ DOWNLOAD (SAFE)
   // ===========================
   Future<void> downloadAllUserData() async {
     final userId = AuthController.to.currentShopId;
@@ -22,10 +22,13 @@ class SyncService {
     for (var doc in snapshot.docs) {
       final data = doc.data();
 
+      /// 🔥 SAFE PARSE p_id
+      final pId = int.tryParse(doc.id);
+
       await db.insert(
         'products',
         {
-          'p_id': int.tryParse(doc.id), // 🔥 IMPORTANT
+          'p_id': pId,
           'shop_id': userId,
           'doc_id': doc.id,
           'name': data['name'],
@@ -43,7 +46,7 @@ class SyncService {
   }
 
   // ===========================
-  // 🔄 REALTIME SYNC (FIXED)
+  // 🔄 REALTIME SYNC (SAFE)
   // ===========================
   void startRealtimeSync() {
     final userId = AuthController.to.currentShopId;
@@ -55,10 +58,15 @@ class SyncService {
       for (var doc in snapshot.docs) {
         final data = doc.data();
 
+        final pId = int.tryParse(doc.id);
+
+        /// 🔥 SKIP INVALID
+        if (pId == null) continue;
+
         await db.insert(
           'products',
           {
-            'p_id': int.tryParse(doc.id), // 🔥 IMPORTANT
+            'p_id': pId,
             'shop_id': userId,
             'doc_id': doc.id,
             'name': data['name'],
@@ -72,12 +80,12 @@ class SyncService {
         );
       }
 
-      print("🔄 Realtime sync updated (no duplicates)");
+      print("🔄 Realtime sync updated");
     });
   }
 
   // ===========================
-  // ⬆️ UPLOAD (FIXED)
+  // ⬆️ UPLOAD (🔥 FIXED)
   // ===========================
   Future<void> syncData() async {
     final db = await dbHelper.db;
@@ -94,18 +102,34 @@ class SyncService {
     for (var p in products) {
       final product = ProductModel.fromMap(p);
 
-      final updated =
-      await firestore.uploadProduct(userId, product);
-
-      await db.update(
+      /// 🔥 SAFETY CHECK (VERY IMPORTANT)
+      final exists = await db.query(
         'products',
-        {
-          'is_synced': 1,
-          'doc_id': updated.docId,
-        },
         where: 'p_id = ?',
         whereArgs: [product.pId],
       );
+
+      if (exists.isEmpty) {
+        /// ❌ already deleted → skip upload
+        continue;
+      }
+
+      try {
+        final updated =
+        await firestore.uploadProduct(userId, product);
+
+        await db.update(
+          'products',
+          {
+            'is_synced': 1,
+            'doc_id': updated.docId,
+          },
+          where: 'p_id = ?',
+          whereArgs: [product.pId],
+        );
+      } catch (e) {
+        print("❌ Upload failed: $e");
+      }
     }
 
     print("⬆️ Upload sync complete");
