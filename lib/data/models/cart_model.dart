@@ -1,47 +1,28 @@
-class CartModel {
-  final int? id;
-  final String shopId;
+class CartItemModel {
   final int productId;
-  final String name;
-  final double price;
-  final int qty;
-  final int stockQty;
-  final String imagePath;
+  final int quantity;
+  final int isSynced;
 
-  CartModel({
-    this.id,
-    required this.shopId,
+  CartItemModel({
     required this.productId,
-    required this.name,
-    required this.price,
-    required this.qty,
-    required this.stockQty,
-    required this.imagePath,
+    required this.quantity,
+    this.isSynced = 0,
   });
 
-  Map<String, dynamic> toMap() {
+  Map<String, dynamic> toMap(String shopId) {
     return {
-      'id': id,
       'shop_id': shopId,
       'product_id': productId,
-      'name': name,
-      'price': price,
-      'qty': qty,
-      'stock_qty': stockQty,
-      'image_path': imagePath,
+      'quantity': quantity,
+      'is_synced': isSynced,
     };
   }
 
-  factory CartModel.fromMap(Map<String, dynamic> map) {
-    return CartModel(
-      id: map['id'],
-      shopId: map['shop_id'],
+  factory CartItemModel.fromMap(Map<String, dynamic> map) {
+    return CartItemModel(
       productId: map['product_id'],
-      name: map['name'],
-      price: (map['price'] as num).toDouble(),
-      qty: map['qty'],
-      stockQty: map['stock_qty'],
-      imagePath: map['image_path'] ?? '',
+      quantity: map['quantity'],
+      isSynced: map['is_synced'] ?? 0,
     );
   }
 }

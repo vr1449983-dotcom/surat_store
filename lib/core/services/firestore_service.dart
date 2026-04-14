@@ -4,28 +4,30 @@ import '../../data/models/order_model.dart';
 import '../../data/models/product_model.dart';
 
 class FirestoreService {
-  /// ✅ Lazy instance
+  /// ✅ Singleton
+  static final FirestoreService _instance = FirestoreService._internal();
+  factory FirestoreService() => _instance;
+  FirestoreService._internal();
+
   FirebaseFirestore get _firestore => FirebaseFirestore.instance;
 
   // =========================================================
-  // 📦 PRODUCT SYNC (🔥 FIXED - NO DUPLICATES)
+  // 📦 PRODUCT SYNC (NO DUPLICATES 🔥)
   // =========================================================
 
   Future<ProductModel> uploadProduct(
       String userId, ProductModel product) async {
-
     final collection = _firestore
         .collection('users')
         .doc(userId)
         .collection('products');
 
-    /// 🔥 MUST HAVE p_id
     if (product.pId == null) {
       throw Exception("❌ p_id is null. Cannot sync product.");
     }
 
-    /// 🔥 USE FIXED DOC ID (VERY IMPORTANT)
-    final docId = product.docId != null && product.docId!.isNotEmpty
+    /// 🔥 FIXED DOC ID
+    final docId = (product.docId != null && product.docId!.isNotEmpty)
         ? product.docId!
         : product.pId.toString();
 
@@ -33,7 +35,7 @@ class FirestoreService {
 
     await docRef.set(
       product.toJson(),
-      SetOptions(merge: true), // ✅ update only
+      SetOptions(merge: true),
     );
 
     return product.copyWith(
@@ -43,20 +45,35 @@ class FirestoreService {
   }
 
   // =========================================================
-  // ❌ DELETE PRODUCT
+  // ❌ DELETE PRODUCT (FULL DELETE 🔥)
   // =========================================================
 
   Future<void> deleteProduct(String userId, String docId) async {
-    await _firestore
+    final batch = _firestore.batch();
+
+    final productRef = _firestore
         .collection('users')
         .doc(userId)
         .collection('products')
-        .doc(docId)
-        .delete();
+        .doc(docId);
+
+    /// 🔥 DELETE PRODUCT
+    batch.delete(productRef);
+
+    /// 🔥 DELETE FROM CART ALSO (IMPORTANT)
+    final cartRef = _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('cart')
+        .doc(docId);
+
+    batch.delete(cartRef);
+
+    await batch.commit();
   }
 
   // =========================================================
-  // 🔄 UPDATE STOCK (AFTER ORDER)
+  // 🔄 UPDATE STOCK
   // =========================================================
 
   Future<void> updateProductStock(
@@ -68,11 +85,12 @@ class FirestoreService {
         .doc(docId)
         .update({
       'stock_qty': FieldValue.increment(-qty),
+      'updated_at': FieldValue.serverTimestamp(),
     });
   }
 
   // =========================================================
-  // 🧾 ORDER + ITEMS
+  // 🧾 ORDER + ITEMS (BATCH 🔥)
   // =========================================================
 
   Future<void> uploadOrderWithItems(
@@ -106,35 +124,31 @@ class FirestoreService {
   }
 
   // =========================================================
-  // 🛒 CART SYNC
+  // 🛒 CART SYSTEM (🔥 PERFECT)
   // =========================================================
 
+  /// ➕ ADD / UPDATE
   Future<void> saveCartItem(
       String userId, ProductModel product, int qty) async {
-
     if (product.pId == null) return;
 
-    await _firestore
+    final docRef = _firestore
         .collection('users')
         .doc(userId)
         .collection('cart')
-        .doc(product.pId.toString())
-        .set({
+        .doc(product.pId.toString());
+
+    await docRef.set({
       'product_id': product.pId,
       'quantity': qty,
+      'price': product.price,
+      'name': product.name,
+      'image_path': product.imagePath,
       'updated_at': FieldValue.serverTimestamp(),
-    });
+    }, SetOptions(merge: true)); // 🔥 IMPORTANT
   }
 
-  Future<QuerySnapshot<Map<String, dynamic>>> getCart(
-      String userId) {
-    return _firestore
-        .collection('users')
-        .doc(userId)
-        .collection('cart')
-        .get();
-  }
-
+  /// ❌ REMOVE ITEM
   Future<void> removeCartItem(String userId, int productId) async {
     await _firestore
         .collection('users')
@@ -144,6 +158,7 @@ class FirestoreService {
         .delete();
   }
 
+  /// 🧹 CLEAR CART (FAST 🔥)
   Future<void> clearCart(String userId) async {
     final snapshot = await _firestore
         .collection('users')
@@ -151,9 +166,65 @@ class FirestoreService {
         .collection('cart')
         .get();
 
+    final batch = _firestore.batch();
+
     for (var doc in snapshot.docs) {
-      await doc.reference.delete();
+      batch.delete(doc.reference);
     }
+
+    await batch.commit();
+  }
+
+  /// 📥 GET CART
+  Future<List<Map<String, dynamic>>> getCart(String userId) async {
+    final snapshot = await _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('cart')
+        .get();
+
+    return snapshot.docs.map((e) => e.data()).toList();
+  }
+
+  /// 📡 REALTIME CART
+  Stream<QuerySnapshot<Map<String, dynamic>>> streamCart(
+      String userId) {
+    return _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('cart')
+        .orderBy('updated_at', descending: true)
+        .snapshots();
+  }
+
+  /// 🔄 FULL CART SYNC (OFFLINE → ONLINE)
+  Future<void> syncFullCart(
+      String userId, Map<ProductModel, int> cartItems) async {
+    final batch = _firestore.batch();
+
+    for (var entry in cartItems.entries) {
+      final product = entry.key;
+      final qty = entry.value;
+
+      if (product.pId == null) continue;
+
+      final docRef = _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('cart')
+          .doc(product.pId.toString());
+
+      batch.set(docRef, {
+        'product_id': product.pId,
+        'quantity': qty,
+        'price': product.price,
+        'name': product.name,
+        'image_path': product.imagePath,
+        'updated_at': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    }
+
+    await batch.commit();
   }
 
   // =========================================================
@@ -179,7 +250,7 @@ class FirestoreService {
   }
 
   // =========================================================
-  // 📡 STREAM ORDERS
+  // 📡 ORDERS STREAM
   // =========================================================
 
   Stream<QuerySnapshot<Map<String, dynamic>>> streamOrders(

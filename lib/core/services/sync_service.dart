@@ -9,7 +9,7 @@ class SyncService {
   final firestore = FirestoreService();
 
   // ===========================
-  // ⬇️ DOWNLOAD (SAFE)
+  // ⬇️ DOWNLOAD (SAFE + CLEAN)
   // ===========================
   Future<void> downloadAllUserData() async {
     final userId = AuthController.to.currentShopId;
@@ -22,8 +22,8 @@ class SyncService {
     for (var doc in snapshot.docs) {
       final data = doc.data();
 
-      /// 🔥 SAFE PARSE p_id
       final pId = int.tryParse(doc.id);
+      if (pId == null) continue; // 🔥 prevent crash
 
       await db.insert(
         'products',
@@ -32,7 +32,7 @@ class SyncService {
           'shop_id': userId,
           'doc_id': doc.id,
           'name': data['name'],
-          'price': data['price'],
+          'price': (data['price'] as num).toDouble(),
           'stock_qty': data['stock_qty'],
           'image_path': data['image_path'] ?? '',
           'description': data['description'] ?? '',
@@ -42,7 +42,7 @@ class SyncService {
       );
     }
 
-    print("✅ Download sync complete (no duplicates)");
+    print("✅ Download sync complete");
   }
 
   // ===========================
@@ -59,8 +59,6 @@ class SyncService {
         final data = doc.data();
 
         final pId = int.tryParse(doc.id);
-
-        /// 🔥 SKIP INVALID
         if (pId == null) continue;
 
         await db.insert(
@@ -70,7 +68,7 @@ class SyncService {
             'shop_id': userId,
             'doc_id': doc.id,
             'name': data['name'],
-            'price': data['price'],
+            'price': (data['price'] as num).toDouble(),
             'stock_qty': data['stock_qty'],
             'image_path': data['image_path'] ?? '',
             'description': data['description'] ?? '',
@@ -85,7 +83,7 @@ class SyncService {
   }
 
   // ===========================
-  // ⬆️ UPLOAD (🔥 FIXED)
+  // ⬆️ PRODUCT UPLOAD (SAFE)
   // ===========================
   Future<void> syncData() async {
     final db = await dbHelper.db;
@@ -102,17 +100,17 @@ class SyncService {
     for (var p in products) {
       final product = ProductModel.fromMap(p);
 
-      /// 🔥 SAFETY CHECK (VERY IMPORTANT)
+      /// 🔥 SKIP INVALID
+      if (product.pId == null) continue;
+
+      /// 🔥 CHECK EXISTS (prevent ghost re-upload)
       final exists = await db.query(
         'products',
         where: 'p_id = ?',
         whereArgs: [product.pId],
       );
 
-      if (exists.isEmpty) {
-        /// ❌ already deleted → skip upload
-        continue;
-      }
+      if (exists.isEmpty) continue;
 
       try {
         final updated =
@@ -128,10 +126,67 @@ class SyncService {
           whereArgs: [product.pId],
         );
       } catch (e) {
-        print("❌ Upload failed: $e");
+        print("❌ Product sync failed: $e");
       }
     }
 
-    print("⬆️ Upload sync complete");
+    print("⬆️ Product sync complete");
+  }
+
+  // ===========================
+  // 🛒 CART SYNC (FINAL 🔥)
+  // ===========================
+  Future<void> syncCart() async {
+    final db = await dbHelper.db;
+    final userId = AuthController.to.currentShopId;
+
+    if (userId == null) return;
+
+    final items = await db.query(
+      'cart',
+      where: 'is_synced = ?',
+      whereArgs: [0],
+    );
+
+    for (var item in items) {
+      final productId = item['product_id'] as int;
+      final qty = item['quantity'] as int;
+
+      /// 🔥 GET PRODUCT
+      final productData = await db.query(
+        'products',
+        where: 'p_id = ?',
+        whereArgs: [productId],
+      );
+
+      /// ❌ PRODUCT DELETED → REMOVE CART ALSO
+      if (productData.isEmpty) {
+        await db.delete(
+          'cart',
+          where: 'product_id = ? AND shop_id = ?',
+          whereArgs: [productId, userId],
+        );
+        continue;
+      }
+
+      final product = ProductModel.fromMap(productData.first);
+
+      try {
+        /// ☁️ SAVE CART
+        await firestore.saveCartItem(userId, product, qty);
+
+        /// ✅ MARK SYNCED
+        await db.update(
+          'cart',
+          {'is_synced': 1},
+          where: 'product_id = ? AND shop_id = ?',
+          whereArgs: [productId, userId],
+        );
+      } catch (e) {
+        print("❌ Cart sync error: $e");
+      }
+    }
+
+    print("🛒 Cart sync complete");
   }
 }

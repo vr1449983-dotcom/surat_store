@@ -14,7 +14,7 @@ class DBHelper {
 
     return await openDatabase(
       path,
-      version: 7, // 🔥 bumped version
+      version: 9, // 🔥 UPDATED VERSION
 
       onCreate: (db, version) async {
         await _createTables(db);
@@ -36,13 +36,14 @@ class DBHelper {
               stock_qty INTEGER,
               image_path TEXT,
               description TEXT,
-              is_synced INTEGER DEFAULT 0
+              is_synced INTEGER DEFAULT 0,
+              is_deleted INTEGER DEFAULT 0
             )
           ''');
 
           await db.execute('''
             INSERT OR REPLACE INTO products_new
-            SELECT * FROM products
+            SELECT *, 0 FROM products
           ''');
 
           await db.execute('DROP TABLE products');
@@ -59,26 +60,46 @@ class DBHelper {
               shop_id TEXT,
               product_id INTEGER,
               quantity INTEGER,
+              is_synced INTEGER DEFAULT 0,
               UNIQUE(shop_id, product_id)
             )
           ''');
         }
 
         // =========================
-        // ⚡ INDEXES (NEW)
+        // ➕ ADD is_deleted COLUMN
         // =========================
-        if (oldVersion < 7) {
-          await db.execute('''
-            CREATE INDEX IF NOT EXISTS idx_cart_shop
-            ON cart(shop_id)
-          ''');
+        if (oldVersion < 8) {
+          await db.execute(
+              "ALTER TABLE products ADD COLUMN is_deleted INTEGER DEFAULT 0");
         }
+
+        // =========================
+        // ➕ ADD cart is_synced
+        // =========================
+        if (oldVersion < 9) {
+          await db.execute(
+              "ALTER TABLE cart ADD COLUMN is_synced INTEGER DEFAULT 0");
+        }
+
+        // =========================
+        // ⚡ INDEXES
+        // =========================
+        await db.execute('''
+          CREATE INDEX IF NOT EXISTS idx_products_shop
+          ON products(shop_id)
+        ''');
+
+        await db.execute('''
+          CREATE INDEX IF NOT EXISTS idx_cart_shop
+          ON cart(shop_id)
+        ''');
       },
     );
   }
 
   // =========================
-  // 🏗 CREATE ALL TABLES
+  // 🏗 CREATE TABLES
   // =========================
   Future<void> _createTables(Database db) async {
 
@@ -86,7 +107,7 @@ class DBHelper {
     // 📦 PRODUCTS
     // =========================
     await db.execute('''
-      CREATE TABLE IF NOT EXISTS products(
+      CREATE TABLE products(
         p_id INTEGER PRIMARY KEY AUTOINCREMENT,
         shop_id TEXT,
         doc_id TEXT UNIQUE,
@@ -95,7 +116,8 @@ class DBHelper {
         stock_qty INTEGER,
         image_path TEXT,
         description TEXT,
-        is_synced INTEGER DEFAULT 0
+        is_synced INTEGER DEFAULT 0,
+        is_deleted INTEGER DEFAULT 0
       )
     ''');
 
@@ -103,9 +125,9 @@ class DBHelper {
     // 📦 ORDERS
     // =========================
     await db.execute('''
-      CREATE TABLE IF NOT EXISTS orders(
+      CREATE TABLE orders(
         o_id TEXT PRIMARY KEY,
-        shop_id TEXT, -- 🔥 IMPORTANT
+        shop_id TEXT,
         total_amount REAL,
         order_date TEXT,
         is_synced INTEGER DEFAULT 0
@@ -116,9 +138,9 @@ class DBHelper {
     // 📦 ORDER ITEMS
     // =========================
     await db.execute('''
-      CREATE TABLE IF NOT EXISTS order_items(
+      CREATE TABLE order_items(
         item_id INTEGER PRIMARY KEY AUTOINCREMENT,
-        shop_id TEXT, -- 🔥 IMPORTANT
+        shop_id TEXT,
         order_id TEXT,
         product_id INTEGER,
         qty_sold INTEGER,
@@ -127,24 +149,28 @@ class DBHelper {
     ''');
 
     // =========================
-    // 🛒 CART (USER BASED)
+    // 🛒 CART
     // =========================
     await db.execute('''
-      CREATE TABLE IF NOT EXISTS cart(
+      CREATE TABLE cart(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         shop_id TEXT,
         product_id INTEGER,
         quantity INTEGER,
+        is_synced INTEGER DEFAULT 0,
         UNIQUE(shop_id, product_id)
       )
     ''');
 
     // =========================
-    // ⚡ INDEX (PERFORMANCE)
+    // ⚡ INDEXES
     // =========================
     await db.execute('''
-      CREATE INDEX IF NOT EXISTS idx_cart_shop
-      ON cart(shop_id)
+      CREATE INDEX idx_products_shop ON products(shop_id)
+    ''');
+
+    await db.execute('''
+      CREATE INDEX idx_cart_shop ON cart(shop_id)
     ''');
   }
 }

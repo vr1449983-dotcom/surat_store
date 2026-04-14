@@ -14,13 +14,24 @@ class SyncManager {
   bool _isSyncing = false;
   Timer? _debounce;
 
+  // =========================
+  // 🔄 MAIN SYNC (UPDATED)
+  // =========================
   Future<void> triggerSync() async {
     if (_isSyncing) return;
 
     _isSyncing = true;
 
     try {
+      print("🔄 Sync started...");
+
+      /// 🔥 PRODUCTS
       await _syncService.syncData();
+
+      /// 🔥 CART (IMPORTANT)
+      await _syncService.syncCart();
+
+      print("✅ Full sync completed");
     } catch (e) {
       print("❌ Sync error: $e");
     }
@@ -28,14 +39,21 @@ class SyncManager {
     _isSyncing = false;
   }
 
+  // =========================
+  // ⏱ DEBOUNCE SYNC
+  // =========================
   void scheduleSync() {
     _debounce?.cancel();
     _debounce = Timer(const Duration(seconds: 3), triggerSync);
   }
 
+  // =========================
+  // 🌐 INTERNET LISTENER
+  // =========================
   void startListening() {
     Connectivity().onConnectivityChanged.listen((event) {
       if (event != ConnectivityResult.none) {
+        print("🌐 Internet detected → Syncing...");
         triggerSync();
       }
     });
