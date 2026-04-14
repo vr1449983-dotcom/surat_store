@@ -189,37 +189,86 @@ class ProductDetailPage extends StatelessWidget {
                 children: [
 
                   /// 🛒 ADD TO CART
+                  /// 🛒 ANIMATED ADD TO CART BUTTON
                   Expanded(
-                    child: ElevatedButton.icon(
-                      icon: const Icon(Icons.shopping_cart_outlined),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.orange,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      onPressed: product.stockQty == 0
-                          ? null
-                          : () {
-                        cartController.addToCart(product);
+                    child: Obx(() {
+                      final isInCart = cartController.cartItems.keys
+                          .any((p) => p.pId == product.pId);
 
-                        Get.snackbar(
-                          "Added",
-                          "Product added to cart",
-                          snackPosition: SnackPosition.BOTTOM,
-                          backgroundColor: Colors.black87,
-                          colorText: Colors.white,
-                          margin: const EdgeInsets.all(10),
-                          borderRadius: 10,
-                        );
-                      },
-                      label: const Text(
-                        "Cart",
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                    ),
+                      return TweenAnimationBuilder<double>(
+                        duration: const Duration(milliseconds: 250),
+                        tween: Tween(begin: 1, end: isInCart ? 1.05 : 1),
+                        builder: (context, scale, child) {
+                          return Transform.scale(
+                            scale: scale,
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeInOut,
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor:
+                                  isInCart ? Colors.green : Colors.orange,
+                                  elevation: 0,
+                                  padding:
+                                  const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+
+                                onPressed: product.stockQty == 0
+                                    ? null
+                                    : () {
+                                  /// 🔥 HAPTIC FEEDBACK (premium feel)
+                                  // ignore: deprecated_member_use
+                                  Feedback.forTap(context);
+
+                                  if (isInCart) {
+                                    cartController.remove(product);
+                                  } else {
+                                    cartController.addToCart(product);
+                                  }
+                                },
+
+                                child: AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 300),
+                                  transitionBuilder: (child, animation) {
+                                    return ScaleTransition(
+                                      scale: animation,
+                                      child: FadeTransition(
+                                        opacity: animation,
+                                        child: child,
+                                      ),
+                                    );
+                                  },
+
+                                  /// 🔥 KEY IS IMPORTANT (forces animation)
+                                  child: Row(
+                                    key: ValueKey(isInCart),
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        isInCart
+                                            ? Icons.shopping_cart
+                                            : Icons.shopping_cart_outlined,
+                                        color: Colors.white,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        isInCart ? "Added" : "Add to Cart",
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w600,color: Colors.white
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      );
+                    }),
                   ),
 
                   const SizedBox(width: 10),
@@ -230,6 +279,7 @@ class ProductDetailPage extends StatelessWidget {
                       icon: const Icon(Icons.flash_on),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF6C5CE7),
+                        foregroundColor: const Color(0xFFFFFFFF),
                         elevation: 0,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
@@ -250,7 +300,7 @@ class ProductDetailPage extends StatelessWidget {
                       },
                       label: const Text(
                         "Buy Now",
-                        style: TextStyle(fontWeight: FontWeight.w600),
+                        style: TextStyle(fontWeight: FontWeight.w600,color: Colors.white),
                       ),
                     ),
                   ),
