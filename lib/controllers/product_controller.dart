@@ -2,6 +2,7 @@ import 'package:get/get.dart';
 import 'package:sqflite/sqflite.dart';
 
 import '../core/db/db_helper.dart';
+import '../core/services/firestore_service.dart';
 import '../core/services/sync_manager.dart';
 import '../data/models/product_model.dart';
 import 'auth_controller.dart';
@@ -17,7 +18,7 @@ class ProductController extends GetxController {
   RxString searchQuery = ''.obs;
   RxDouble maxPrice = 0.0.obs;
   RxString sortType = 'none'.obs;
-  RxBool onlyInStock = false.obs; // ✅ KEEP FALSE (IMPORTANT)
+  RxBool onlyInStock = false.obs;
 
   /// 🔄 LOADING
   RxBool isLoading = false.obs;
@@ -28,7 +29,7 @@ class ProductController extends GetxController {
 
     loadProducts();
 
-    /// 🔥 AUTO FILTER TRIGGERS
+    /// 🔥 AUTO FILTER
     everAll([
       products,
       searchQuery,
@@ -60,7 +61,6 @@ class ProductController extends GetxController {
       products.value =
           result.map((e) => ProductModel.fromMap(e)).toList();
 
-      /// 🔥 FORCE FILTER REFRESH (IMPORTANT FIX)
       applyFilters();
 
     } catch (e) {
@@ -90,17 +90,15 @@ class ProductController extends GetxController {
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
 
-      /// 🔥 INSTANT UI UPDATE
-      products.insert(
-        0,
-        product.copyWith(
-          pId: id,
-          shopId: userId,
-          isSynced: 0,
-        ),
+      final newProduct = product.copyWith(
+        pId: id,
+        shopId: userId,
+        isSynced: 0,
       );
 
-      applyFilters(); // 🔥 IMPORTANT
+      products.insert(0, newProduct);
+
+      applyFilters();
 
       /// 🔄 AUTO SYNC
       SyncManager().scheduleSync();
@@ -111,7 +109,7 @@ class ProductController extends GetxController {
   }
 
   // ===========================
-  // ✏️ UPDATE PRODUCT
+  // ✏️ UPDATE PRODUCT (🔥 FIXED)
   // ===========================
   Future<void> updateProduct(ProductModel product) async {
     try {
@@ -119,7 +117,10 @@ class ProductController extends GetxController {
 
       final db = await dbHelper.db;
 
-      final updatedProduct = product.copyWith(isSynced: 0);
+      /// 🔥 KEEP doc_id (VERY IMPORTANT)
+      final updatedProduct = product.copyWith(
+        isSynced: 0,
+      );
 
       await db.update(
         'products',
@@ -128,15 +129,16 @@ class ProductController extends GetxController {
         whereArgs: [product.pId],
       );
 
-      /// 🔥 UPDATE UI
+      /// 🔥 UPDATE UI SAFELY
       final index =
       products.indexWhere((p) => p.pId == product.pId);
 
       if (index != -1) {
         products[index] = updatedProduct;
+        products.refresh(); // 🔥 FORCE UI UPDATE
       }
 
-      applyFilters(); // 🔥 IMPORTANT
+      applyFilters();
 
       /// 🔄 AUTO SYNC
       SyncManager().scheduleSync();
@@ -151,25 +153,34 @@ class ProductController extends GetxController {
   // ===========================
   // ❌ DELETE PRODUCT
   // ===========================
-  Future<void> deleteProduct(int id) async {
+  Future<void> deleteProduct(ProductModel product) async {
     try {
       final db = await dbHelper.db;
+      final userId = AuthController.to.currentShopId;
 
+      if (product.pId == null || userId == null) return;
+
+      /// 🔥 ALWAYS GENERATE DOC ID
+      final docId = product.docId != null && product.docId!.isNotEmpty
+          ? product.docId!
+          : product.pId.toString(); // 🔥 fallback
+
+      /// 🔥 DELETE FROM FIRESTORE (IMPORTANT)
+      await FirestoreService().deleteProduct(userId, docId);
+
+      /// 🔥 DELETE FROM LOCAL
       await db.delete(
         'products',
         where: 'p_id = ?',
-        whereArgs: [id],
+        whereArgs: [product.pId],
       );
 
       /// 🔥 REMOVE FROM UI
-      products.removeWhere((p) => p.pId == id);
+      products.removeWhere((p) => p.pId == product.pId);
 
-      applyFilters(); // 🔥 IMPORTANT
+      applyFilters();
 
-      /// 🔄 AUTO SYNC
-      SyncManager().scheduleSync();
-
-      print("🗑️ Deleted product: $id");
+      print("🗑️ Fully deleted: ${product.pId}");
 
     } catch (e) {
       print("❌ DELETE ERROR: $e");
@@ -177,7 +188,7 @@ class ProductController extends GetxController {
   }
 
   // ===========================
-  // 🔍 FILTER LOGIC (SAFE FIX)
+  // 🔍 FILTER LOGIC
   // ===========================
   void applyFilters() {
     List<ProductModel> temp = List.from(products);
@@ -189,13 +200,12 @@ class ProductController extends GetxController {
               searchQuery.value.toLowerCase())).toList();
     }
 
-    /// 💰 PRICE FILTER
+    /// 💰 PRICE
     if (maxPrice.value > 0) {
       temp = temp.where((p) => p.price <= maxPrice.value).toList();
     }
 
-    /// 📦 STOCK FILTER
-    /// 🔥 IMPORTANT: DO NOT HIDE PRODUCTS AUTOMATICALLY
+    /// 📦 STOCK
     if (onlyInStock.value) {
       temp = temp.where((p) => p.stockQty > 0).toList();
     }
@@ -231,6 +241,6 @@ class ProductController extends GetxController {
     searchQuery.value = '';
     maxPrice.value = 0;
     sortType.value = 'none';
-    onlyInStock.value = false; // 🔥 KEEP FALSE
+    onlyInStock.value = false;
   }
 }

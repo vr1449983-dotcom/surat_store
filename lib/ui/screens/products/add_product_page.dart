@@ -5,7 +5,6 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../controllers/product_controller.dart';
 import '../../../data/models/product_model.dart';
-import '../../../core/services/sync_manager.dart';
 
 class AddProductScreen extends StatefulWidget {
   final ProductModel? product;
@@ -28,6 +27,9 @@ class _AddProductScreenState extends State<AddProductScreen> {
   final picker = ImagePicker();
 
   bool isLoading = false;
+
+  /// 🔥 track if user removed image manually
+  bool isImageRemoved = false;
 
   @override
   void initState() {
@@ -69,6 +71,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
       if (picked != null) {
         setState(() {
           selectedImage = File(picked.path);
+          isImageRemoved = false; // reset
         });
       }
     } catch (e) {
@@ -155,7 +158,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
   }
 
   // ===========================
-  // 📦 SUBMIT
+  // 📦 SUBMIT (🔥 FIXED)
   // ===========================
   Future<void> submit() async {
     final name = nameController.text.trim();
@@ -179,7 +182,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
       return;
     }
 
-    /// 🔥 IMAGE REQUIRED ONLY FOR NEW PRODUCT
+    /// 🔥 IMAGE REQUIRED ONLY FOR NEW
     if (widget.product == null && selectedImage == null) {
       Get.snackbar("Error", "Product image required");
       return;
@@ -188,18 +191,28 @@ class _AddProductScreenState extends State<AddProductScreen> {
     setState(() => isLoading = true);
 
     try {
+      /// 🔥 IMAGE LOGIC FIX
+      String imagePath = "";
+
+      if (selectedImage != null) {
+        imagePath = selectedImage!.path;
+      } else if (isImageRemoved) {
+        imagePath = ""; // user removed image
+      } else {
+        imagePath = widget.product?.imagePath ?? "";
+      }
+
       final product = ProductModel(
+        /// 🔥 KEEP IDS (VERY IMPORTANT)
         pId: widget.product?.pId,
         docId: widget.product?.docId,
+        shopId: widget.product?.shopId,
+
         name: name,
         price: price,
         stockQty: stock,
         description: desc,
-
-        /// 🔥 KEEP OLD IMAGE IF NOT CHANGED
-        imagePath: selectedImage?.path ??
-            widget.product?.imagePath ??
-            "",
+        imagePath: imagePath,
 
         isSynced: 0,
       );
@@ -210,11 +223,9 @@ class _AddProductScreenState extends State<AddProductScreen> {
         await controller.updateProduct(product);
       }
 
-      /// 🔥 AUTO SYNC
-      SyncManager().scheduleSync();
-
       Get.back();
       Get.snackbar("Success", "Product saved");
+
     } catch (e) {
       Get.snackbar("Error", "Something went wrong");
     } finally {
@@ -229,9 +240,9 @@ class _AddProductScreenState extends State<AddProductScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.product == null
-            ? "Add Product"
-            : "Edit Product"),
+        title: Text(
+          widget.product == null ? "Add Product" : "Edit Product",
+        ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
@@ -271,11 +282,13 @@ class _AddProductScreenState extends State<AddProductScreen> {
               ),
             ),
 
-            if (selectedImage != null)
+            /// 🔥 REMOVE IMAGE BUTTON
+            if (selectedImage != null || widget.product != null)
               TextButton(
                 onPressed: () {
                   setState(() {
                     selectedImage = null;
+                    isImageRemoved = true;
                   });
                 },
                 child: const Text("Remove Image"),

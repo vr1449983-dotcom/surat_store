@@ -17,52 +17,60 @@ class DashboardScreen extends StatelessWidget {
       appBar: AppBar(title: const Text("Dashboard")),
 
       body: Obx(() {
-
-        /// 🔄 LOADING STATE (IMPORTANT)
+        /// 🔄 LOADING
         if (controller.isLoading.value) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        return ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
+        return RefreshIndicator(
+          onRefresh: () async {
+            await controller.loadProducts();
+          },
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
 
-            /// 📊 STATS
-            Card(
-              child: ListTile(
-                title: const Text("Total Products"),
-                trailing: Text(
-                  controller.products.length.toString(),
-                  style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.bold),
+              /// 📊 STATS
+              Card(
+                child: ListTile(
+                  title: const Text("Total Products"),
+                  trailing: Text(
+                    controller.products.length.toString(),
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ),
-            ),
 
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-            /// ➕ ADD BUTTON
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () =>
-                    Get.to(() => const AddProductScreen()),
-                icon: const Icon(Icons.add),
-                label: const Text("Add Product"),
+              /// ➕ ADD BUTTON
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    await Get.to(() => const AddProductScreen());
+
+                    /// ❌ REMOVE THIS (not needed)
+                    // controller.loadProducts();
+                  },
+                  icon: const Icon(Icons.add),
+                  label: const Text("Add Product"),
+                ),
               ),
-            ),
 
-            const SizedBox(height: 20),
+              const SizedBox(height: 20),
 
-            /// 📦 EMPTY STATE
-            if (controller.products.isEmpty)
-              const Center(child: Text("No Products Found")),
+              /// 📦 EMPTY STATE
+              if (controller.filteredProducts.isEmpty)
+                const Center(child: Text("No Products Found")),
 
-            /// 📦 PRODUCT LIST
-            ...controller.products.map(
-                  (p) => _item(p),
-            ),
-          ],
+              /// 📦 LIST (🔥 FIXED)
+              ...controller.filteredProducts.map((p) => _item(p)),
+            ],
+          ),
         );
       }),
     );
@@ -71,7 +79,8 @@ class DashboardScreen extends StatelessWidget {
   Widget _item(ProductModel p) {
     return Card(
       child: ListTile(
-        leading: p.imagePath.isNotEmpty
+        leading: p.imagePath.isNotEmpty &&
+            File(p.imagePath).existsSync()
             ? ClipRRect(
           borderRadius: BorderRadius.circular(8),
           child: Image.file(
@@ -96,8 +105,11 @@ class DashboardScreen extends StatelessWidget {
             /// ✏️ EDIT
             IconButton(
               icon: const Icon(Icons.edit, color: Colors.blue),
-              onPressed: () {
-                Get.to(() => AddProductScreen(product: p));
+              onPressed: () async {
+                await Get.to(() => AddProductScreen(product: p));
+
+                /// ❌ REMOVE THIS (not needed)
+                // controller.loadProducts();
               },
             ),
 
@@ -107,12 +119,15 @@ class DashboardScreen extends StatelessWidget {
               onPressed: () {
                 Get.defaultDialog(
                   title: "Delete",
-                  middleText: "Are you sure?",
+                  middleText: "Are you sure you want to delete this product?",
                   textConfirm: "Yes",
                   textCancel: "No",
+                  confirmTextColor: Colors.white,
                   onConfirm: () {
                     Get.back();
-                    controller.deleteProduct(p.pId!);
+
+                    /// 🔥 FINAL DELETE CALL
+                    controller.deleteProduct(p);
                   },
                 );
               },

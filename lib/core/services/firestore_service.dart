@@ -8,24 +8,33 @@ class FirestoreService {
   FirebaseFirestore get _firestore => FirebaseFirestore.instance;
 
   // =========================================================
-  // 📦 PRODUCT SYNC
+  // 📦 PRODUCT SYNC (🔥 FIXED - NO DUPLICATES)
   // =========================================================
 
   Future<ProductModel> uploadProduct(
       String userId, ProductModel product) async {
+
     final collection = _firestore
         .collection('users')
         .doc(userId)
         .collection('products');
 
-    DocumentReference docRef;
-
-    if (product.docId != null && product.docId!.isNotEmpty) {
-      docRef = collection.doc(product.docId);
-      await docRef.set(product.toJson(), SetOptions(merge: true));
-    } else {
-      docRef = await collection.add(product.toJson());
+    /// 🔥 MUST HAVE p_id
+    if (product.pId == null) {
+      throw Exception("❌ p_id is null. Cannot sync product.");
     }
+
+    /// 🔥 USE FIXED DOC ID (VERY IMPORTANT)
+    final docId = product.docId != null && product.docId!.isNotEmpty
+        ? product.docId!
+        : product.pId.toString();
+
+    final docRef = collection.doc(docId);
+
+    await docRef.set(
+      product.toJson(),
+      SetOptions(merge: true), // ✅ update only
+    );
 
     return product.copyWith(
       docId: docRef.id,
@@ -33,7 +42,10 @@ class FirestoreService {
     );
   }
 
-  /// ❌ DELETE PRODUCT
+  // =========================================================
+  // ❌ DELETE PRODUCT
+  // =========================================================
+
   Future<void> deleteProduct(String userId, String docId) async {
     await _firestore
         .collection('users')
@@ -43,7 +55,10 @@ class FirestoreService {
         .delete();
   }
 
-  /// 🔄 UPDATE STOCK (USED AFTER ORDER)
+  // =========================================================
+  // 🔄 UPDATE STOCK (AFTER ORDER)
+  // =========================================================
+
   Future<void> updateProductStock(
       String userId, String docId, int qty) async {
     await _firestore
@@ -91,12 +106,14 @@ class FirestoreService {
   }
 
   // =========================================================
-  // 🛒 CART SYNC (🔥 NEW)
+  // 🛒 CART SYNC
   // =========================================================
 
-  /// 📤 SAVE CART ITEM
   Future<void> saveCartItem(
       String userId, ProductModel product, int qty) async {
+
+    if (product.pId == null) return;
+
     await _firestore
         .collection('users')
         .doc(userId)
@@ -109,7 +126,6 @@ class FirestoreService {
     });
   }
 
-  /// 📥 GET CART (FOR MULTI DEVICE)
   Future<QuerySnapshot<Map<String, dynamic>>> getCart(
       String userId) {
     return _firestore
@@ -119,7 +135,6 @@ class FirestoreService {
         .get();
   }
 
-  /// ❌ REMOVE CART ITEM
   Future<void> removeCartItem(String userId, int productId) async {
     await _firestore
         .collection('users')
@@ -129,7 +144,6 @@ class FirestoreService {
         .delete();
   }
 
-  /// 🧹 CLEAR FULL CART
   Future<void> clearCart(String userId) async {
     final snapshot = await _firestore
         .collection('users')
@@ -143,7 +157,7 @@ class FirestoreService {
   }
 
   // =========================================================
-  // 📡 FETCH / STREAM PRODUCTS
+  // 📡 PRODUCTS FETCH / STREAM
   // =========================================================
 
   Future<QuerySnapshot<Map<String, dynamic>>> getUserProducts(
@@ -165,7 +179,7 @@ class FirestoreService {
   }
 
   // =========================================================
-  // 📡 STREAM ORDERS (OPTIONAL)
+  // 📡 STREAM ORDERS
   // =========================================================
 
   Stream<QuerySnapshot<Map<String, dynamic>>> streamOrders(

@@ -9,7 +9,7 @@ class SyncService {
   final firestore = FirestoreService();
 
   // ===========================
-  // 🔥 DOWNLOAD (SAFE)
+  // ⬇️ DOWNLOAD (FIXED)
   // ===========================
   Future<void> downloadAllUserData() async {
     final userId = AuthController.to.currentShopId;
@@ -17,40 +17,33 @@ class SyncService {
 
     if (userId == null) return;
 
-    print("⬇️ Downloading user data...");
+    final snapshot = await firestore.getUserProducts(userId);
 
-    try {
-      final productsSnap =
-      await firestore.getUserProducts(userId);
+    for (var doc in snapshot.docs) {
+      final data = doc.data();
 
-      for (var doc in productsSnap.docs) {
-        final data = doc.data();
-
-        await db.insert(
-          'products',
-          {
-            'shop_id': userId,
-            'doc_id': doc.id,
-            'name': data['name'],
-            'price': data['price'],
-            'stock_qty': data['stock_qty'],
-            'image_path': data['image_path'] ?? '',
-            'description': data['description'] ?? '',
-            'is_synced': 1,
-          },
-          conflictAlgorithm: ConflictAlgorithm.replace, // 🔥 NOW WORKS
-        );
-      }
-
-      print("✅ Products synced without duplicates");
-
-    } catch (e) {
-      print("❌ Download error: $e");
+      await db.insert(
+        'products',
+        {
+          'p_id': int.tryParse(doc.id), // 🔥 IMPORTANT
+          'shop_id': userId,
+          'doc_id': doc.id,
+          'name': data['name'],
+          'price': data['price'],
+          'stock_qty': data['stock_qty'],
+          'image_path': data['image_path'] ?? '',
+          'description': data['description'] ?? '',
+          'is_synced': 1,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
     }
+
+    print("✅ Download sync complete (no duplicates)");
   }
 
   // ===========================
-  // 🔥 REALTIME SYNC
+  // 🔄 REALTIME SYNC (FIXED)
   // ===========================
   void startRealtimeSync() {
     final userId = AuthController.to.currentShopId;
@@ -65,6 +58,7 @@ class SyncService {
         await db.insert(
           'products',
           {
+            'p_id': int.tryParse(doc.id), // 🔥 IMPORTANT
             'shop_id': userId,
             'doc_id': doc.id,
             'name': data['name'],
@@ -83,7 +77,7 @@ class SyncService {
   }
 
   // ===========================
-  // 🔄 UPLOAD
+  // ⬆️ UPLOAD (FIXED)
   // ===========================
   Future<void> syncData() async {
     final db = await dbHelper.db;
@@ -113,5 +107,7 @@ class SyncService {
         whereArgs: [product.pId],
       );
     }
+
+    print("⬆️ Upload sync complete");
   }
 }
