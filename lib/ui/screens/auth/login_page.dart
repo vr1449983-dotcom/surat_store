@@ -49,13 +49,17 @@ class _LoginScreenState extends State<LoginScreen> {
                   // 🔥 App Logo / Icon (Optional)
                   Center(
                     child: Container(
-                      height: 70,
-                      width: 70,
+                      height: 80,
+                      width: 80,
                       decoration: BoxDecoration(
                         color: primary.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(18),
                       ),
-                      child: Icon(Icons.store, color: primary, size: 34),
+                      child:  Icon(
+                        Icons.storefront_rounded,
+                        color: primary,
+                        size: 40,
+                      ),
                     ),
                   ),
 
@@ -169,14 +173,14 @@ class _LoginScreenState extends State<LoginScreen> {
                           Text(
                             "LOG IN",
                             style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w800, // 🔥 extra bold
-                              letterSpacing: 1.2, // 🔥 makes it premium
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 1,
                               color: Colors.white,
                             ),
                           ),
                           SizedBox(width: 8),
-                          Icon(Icons.arrow_forward_rounded, size: 20),
+                          Icon(Icons.arrow_forward_rounded, size: 20,color: Colors.white,),
                         ],
                       ),
                     ),

@@ -17,7 +17,16 @@ class CartScreen extends StatefulWidget {
 }
 
 class _CartScreenState extends State<CartScreen> {
-  static const primary = Colors.deepPurple;
+  static const Color primary = Colors.deepPurple;
+
+  final TextEditingController nameController = TextEditingController();
+  bool _isPlacingOrder = false;
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -25,195 +34,157 @@ class _CartScreenState extends State<CartScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF6F5FF),
-
-      /// 🎨 MODERN COLORED APPBAR
       appBar: AppBar(
-        elevation: 0,
         backgroundColor: primary,
         centerTitle: true,
-        title: const Text(
-          "My Cart",
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            color: Colors.white,
-          ),
-        ),
+        title: const Text("My Cart", style: TextStyle(color: Colors.white)),
       ),
-
       body: Obx(() {
         if (cart.cartItems.isEmpty) {
-          return _emptyState();
+          return Center(child:  Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+
+              /// ICON
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: const BoxDecoration(
+                  color: Colors.deepPurple,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.shopping_cart_outlined,
+                  size: 60,
+                  color: Colors.deepPurple,
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              /// TITLE
+              const Text(
+                "Your Cart is Empty",
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+
+              const SizedBox(height: 6),
+
+              /// SUBTITLE
+              const Text(
+                "Looks like you haven’t added anything yet",
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey,
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              /// OPTIONAL BUTTON (GO SHOP)
+              ElevatedButton.icon(
+                onPressed: () {
+                  Get.back(); // or navigate to products screen
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.deepPurple,
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 20, vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+                icon: const Icon(Icons.store, color: Colors.white),
+                label: const Text(
+                  "Start Shopping",
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
+          ),);
         }
+
+        final items = cart.cartItems.entries.toList();
 
         return Column(
           children: [
 
-            /// 🛍 CART LIST
+            /// CART LIST
             Expanded(
               child: ListView.builder(
-                padding: const EdgeInsets.only(top: 10),
-                itemCount: cart.cartItems.length,
+                itemCount: items.length,
                 itemBuilder: (context, index) {
-                  final entry = cart.cartItems.entries.toList()[index];
-                  final product = entry.key;
-                  final qty = entry.value;
+                  final product = items[index].key;
+                  final qty = items[index].value;
 
-                  final isMin = qty <= 1;
-                  final isMax = qty >= product.stockQty;
-
-                  return Container(
-                    margin: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 6),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: primary.withOpacity(0.06),
-                          blurRadius: 10,
-                          offset: const Offset(0, 6),
-                        )
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-
-                        /// 🖼 IMAGE
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: product.imagePath.isNotEmpty &&
-                              File(product.imagePath).existsSync()
-                              ? Image.file(
-                            File(product.imagePath),
-                            height: 70,
-                            width: 70,
-                            fit: BoxFit.cover,
-                          )
-                              : Image.network(
-                            "https://via.placeholder.com/100",
-                            height: 70,
-                            width: 70,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-
-                        const SizedBox(width: 12),
-
-                        /// 📦 DETAILS
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                product.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 15,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                "₹${product.price}",
-                                style: TextStyle(
-                                  color: Colors.grey.shade600,
-                                ),
-                              ),
-                              if (isMax)
-                                const Text(
-                                  "Max stock reached",
-                                  style: TextStyle(
-                                    color: Colors.red,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-
-                        /// 🔢 QTY CONTROL (MODERN)
-                        Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFF1EEFF),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
-                            children: [
-                              IconButton(
-                                onPressed: isMin
-                                    ? null
-                                    : () => cart.decrease(product),
-                                icon: const Icon(Icons.remove, size: 18),
-                              ),
-                              Text(
-                                qty.toString(),
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              IconButton(
-                                onPressed: isMax
-                                    ? null
-                                    : () => cart.increase(product),
-                                icon: const Icon(Icons.add, size: 18),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
+                  return ListTile(
+                    leading: (product.imagePath.isNotEmpty &&
+                        File(product.imagePath).existsSync())
+                        ? Image.file(File(product.imagePath), width: 60)
+                        : Image.network("https://via.placeholder.com/100"),
+                    title: Text(product.name),
+                    subtitle: Text("₹${product.price}"),
+                    trailing: Text("x$qty"),
                   );
                 },
               ),
             ),
 
-            /// 💰 TOTAL SECTION (MODERN CARD)
+            /// BOTTOM
             Container(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: Colors.white,
                 borderRadius:
-                const BorderRadius.vertical(top: Radius.circular(24)),
-                boxShadow: [
-                  BoxShadow(
-                    color: primary.withOpacity(0.1),
-                    blurRadius: 12,
-                  )
-                ],
+                BorderRadius.vertical(top: Radius.circular(20)),
               ),
               child: Column(
                 children: [
-                  _row("Subtotal", cart.total),
-                  _row("GST (5%)", cart.gst),
 
-                  const Divider(height: 20),
+                  TextField(
+                    controller: nameController,
+                    decoration: InputDecoration(
+                      hintText: "Customer Name *",
+                      prefixIcon: const Icon(Icons.person),
+                      filled: true,
+                      fillColor: const Color(0xFFF4F4F4),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
 
                   _row("Total", cart.grandTotal, bold: true),
 
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 14),
 
                   SizedBox(
                     width: double.infinity,
-                    height: 50,
+                    height: 48,
                     child: ElevatedButton(
-                      onPressed: () async {
-                        await _placeOrder(cart);
+                      onPressed: _isPlacingOrder
+                          ? null
+                          : () async {
+                        final name = nameController.text.trim();
+
+                        if (name.isEmpty) {
+                          Get.snackbar(
+                              "Required", "Enter customer name");
+                          return;
+                        }
+
+                        await _placeOrder(cart, name);
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: primary,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
                       ),
-                      child: const Text(
-                        "Place Order",
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                      child: const Text("Place Order",
+                          style: TextStyle(color: Colors.white)),
                     ),
                   )
                 ],
@@ -225,153 +196,194 @@ class _CartScreenState extends State<CartScreen> {
     );
   }
 
-  /// 🛒 EMPTY STATE
-  Widget _emptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.shopping_cart_outlined,
-              size: 80, color: Colors.deepPurple.shade100),
-          const SizedBox(height: 12),
-          Text(
-            "Your cart is empty",
-            style: TextStyle(
-              fontSize: 16,
-              color: Colors.grey.shade600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// 💰 ROW
   Widget _row(String title, double value, {bool bold = false}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(title),
-          Text(
-            "₹${value.toStringAsFixed(2)}",
-            style: TextStyle(
-              fontWeight: bold ? FontWeight.bold : FontWeight.normal,
-            ),
-          ),
-        ],
-      ),
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(title),
+        Text(
+          "₹${value.toStringAsFixed(2)}",
+          style: TextStyle(
+              fontWeight:
+              bold ? FontWeight.bold : FontWeight.normal),
+        ),
+      ],
     );
   }
 
-  /// 🚀 PLACE ORDER (UNCHANGED LOGIC)
-  Future<void> _placeOrder(CartController cart) async {
-    final db = await DBHelper().db;
-    final auth = AuthController.to;
-    final orderId = DateTime.now().millisecondsSinceEpoch.toString();
+  /// 🚀 FAST ORDER (DIALOG FIRST)
+  Future<void> _placeOrder(
+      CartController cart, String customerName) async {
 
+    if (_isPlacingOrder) return;
+    _isPlacingOrder = true;
+
+    final orderId =
+    DateTime.now().millisecondsSinceEpoch.toString();
+
+    /// ✅ SHOW DIALOG IMMEDIATELY
     Get.dialog(
-      const Center(child: CircularProgressIndicator()),
+      Dialog(
+        shape:
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+
+              /// ICON
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: const BoxDecoration(
+                  color: Colors.green,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.check,
+                    color: Colors.white, size: 28),
+              ),
+
+              const SizedBox(height: 12),
+
+              /// TITLE
+              const Text(
+                "Order Placed",
+                style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold),
+              ),
+
+              const SizedBox(height: 6),
+
+              /// MESSAGE
+              const Text(
+                "Your order has been placed successfully",
+                textAlign: TextAlign.center,
+              ),
+
+              const SizedBox(height: 16),
+
+              /// BUTTON
+              ElevatedButton(
+                onPressed: () => Get.back(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: primary,
+                ),
+                child: const Text("OK",
+                    style: TextStyle(color: Colors.white)),
+              )
+            ],
+          ),
+        ),
+      ),
       barrierDismissible: false,
     );
 
-    try {
-      for (var e in cart.cartItems.entries) {
-        if (e.value > e.key.stockQty) {
-          Get.back();
-          Get.snackbar("Error", "${e.key.name} out of stock");
-          return;
-        }
-      }
+    /// ⚡ BACKGROUND PROCESS
+    _processOrder(cart, customerName, orderId);
+  }
 
+  /// 🔥 BACKGROUND LOGIC
+  Future<void> _processOrder(
+      CartController cart,
+      String customerName,
+      String orderId) async {
+
+    final db = await DBHelper().db;
+    final auth = AuthController.to;
+
+    try {
       await db.insert('orders', {
         'o_id': orderId,
+        'shop_id': auth.currentShopId,
+        'customer_name': customerName,
         'total_amount': cart.grandTotal,
         'order_date': DateTime.now().toString(),
         'is_synced': 0,
       });
 
-      for (var e in cart.cartItems.entries) {
-        final product = e.key;
-        final qty = e.value;
+      for (var entry in cart.cartItems.entries) {
+        final product = entry.key;
+        final qty = entry.value;
 
         await db.insert('order_items', {
+          'shop_id': auth.currentShopId,
           'order_id': orderId,
           'product_id': product.pId,
           'qty_sold': qty,
           'price_at_sale': product.price,
         });
 
+        final newStock = product.stockQty - qty;
+
         await db.update(
           'products',
-          {
-            'stock_qty': product.stockQty - qty,
-            'is_synced': 0,
-          },
+          {'stock_qty': newStock, 'is_synced': 0},
           where: 'p_id = ?',
           whereArgs: [product.pId],
         );
       }
 
-      if (auth.currentShopId != null) {
-        final firestore = FirebaseFirestore.instance;
-
-        final orderRef = firestore
-            .collection('users')
-            .doc(auth.currentShopId)
-            .collection('orders')
-            .doc(orderId);
-
-        final batch = firestore.batch();
-
-        batch.set(orderRef, {
-          'o_id': orderId,
-          'total_amount': cart.grandTotal,
-          'order_date': DateTime.now().toString(),
-        });
-
-        for (var e in cart.cartItems.entries) {
-          batch.set(orderRef.collection('items').doc(), {
-            'product_name': e.key.name,
-            'qty': e.value,
-            'price': e.key.price,
-          });
-
-          if (e.key.docId != null) {
-            final productRef = firestore
-                .collection('users')
-                .doc(auth.currentShopId)
-                .collection('products')
-                .doc(e.key.docId);
-
-            batch.update(productRef, {
-              'stock_qty': FieldValue.increment(-e.value),
-            });
-          }
-        }
-
-        await batch.commit();
-      }
-
       await Get.find<ProductController>().loadProducts();
+
+      _syncToCloud(orderId, cart, auth, customerName);
+
       SyncManager().scheduleSync();
+
       await cart.clearCart();
 
-      Get.back();
+    } catch (_) {}
 
-      await Get.defaultDialog(
-        title: "Success 🎉",
-        middleText: "Order placed successfully",
-        textConfirm: "OK",
-        onConfirm: () {
-          Get.back();
-          Get.back();
-        },
-      );
-    } catch (e) {
-      Get.back();
-      Get.snackbar("Error", e.toString());
-    }
+    _isPlacingOrder = false;
+  }
+
+  /// ☁️ FIRESTORE
+  Future<void> _syncToCloud(
+      String orderId,
+      CartController cart,
+      AuthController auth,
+      String customerName) async {
+
+    try {
+      final firestore = FirebaseFirestore.instance;
+
+      final orderRef = firestore
+          .collection('users')
+          .doc(auth.currentShopId)
+          .collection('orders')
+          .doc(orderId);
+
+      final batch = firestore.batch();
+
+      batch.set(orderRef, {
+        'customer_name': customerName,
+        'total_amount': cart.grandTotal,
+        'order_date': DateTime.now().toString(),
+      });
+
+      for (var e in cart.cartItems.entries) {
+        batch.set(orderRef.collection('items').doc(), {
+          'product_name': e.key.name,
+          'qty': e.value,
+          'price': e.key.price,
+        });
+
+        if (e.key.docId != null) {
+          final productRef = firestore
+              .collection('users')
+              .doc(auth.currentShopId)
+              .collection('products')
+              .doc(e.key.docId);
+
+          final newStock = e.key.stockQty - e.value;
+
+          batch.update(productRef, {
+            'stock_qty': newStock,
+          });
+        }
+      }
+
+      await batch.commit();
+    } catch (_) {}
   }
 }

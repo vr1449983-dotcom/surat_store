@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -15,13 +16,20 @@ class BuyNowCheckoutScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final buyNow = Get.find<BuyNowController>();
     final auth = AuthController.to;
-    final theme = Theme.of(context);
 
-    /// 🔥 Prevent multiple clicks
-    final isPlacingOrder = false.obs;
+    final nameController = TextEditingController();
 
     return Scaffold(
-      appBar: AppBar(title: const Text("Buy Now")),
+      backgroundColor: const Color(0xFFF6F7FB),
+
+      appBar: AppBar(
+        title: const Text("Checkout",
+            style: TextStyle(color: Colors.white)),
+        centerTitle: true,
+        backgroundColor: const Color(0xFF6C5CE7),
+      ),
+
+      resizeToAvoidBottomInset: true,
 
       body: Obx(() {
         final product = buyNow.product.value;
@@ -33,59 +41,140 @@ class BuyNowCheckoutScreen extends StatelessWidget {
         return Column(
           children: [
 
-            /// 🛍 PRODUCT CARD
-            Container(
-              margin: const EdgeInsets.all(12),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: theme.cardColor,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.shopping_bag, size: 50),
-                  const SizedBox(width: 10),
+            /// 🔽 SCROLL CONTENT
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
 
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(product.name),
-                        Text("₹${product.price}"),
-                        Text("Stock: ${product.stockQty}"),
-                      ],
+                    /// PRODUCT CARD
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.shopping_bag, size: 45),
+                          const SizedBox(width: 12),
+
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment:
+                              CrossAxisAlignment.start,
+                              children: [
+                                Text(product.name,
+                                    style: const TextStyle(
+                                        fontWeight:
+                                        FontWeight.w600)),
+                                const SizedBox(height: 4),
+                                Text("₹${product.price}",
+                                    style: const TextStyle(
+                                        color: Colors.green)),
+                                Text("Stock: ${product.stockQty}",
+                                    style: TextStyle(
+                                        color:
+                                        Colors.grey.shade600)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+
+                    const SizedBox(height: 16),
+
+                    /// CUSTOMER NAME
+                    TextField(
+                      controller: nameController,
+                      decoration: InputDecoration(
+                        labelText: "Customer Name *",
+                        filled: true,
+                        fillColor: Colors.white,
+                        prefixIcon: const Icon(Icons.person),
+                        border: OutlineInputBorder(
+                          borderRadius:
+                          BorderRadius.circular(14),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    /// SECTION TITLE
+                    const Text(
+                      "Add Quantity",
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                        color: Colors.grey,
+                      ),
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    /// QTY CONTROL
+                    Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius:
+                          BorderRadius.circular(14),
+                        ),
+                        child: Obx(() =>
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  onPressed:
+                                  buyNow.quantity.value <= 1
+                                      ? null
+                                      : buyNow.decreaseQty,
+                                  icon: const Icon(Icons.remove),
+                                ),
+                                Text(
+                                  "${buyNow.quantity.value}",
+                                  style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight:
+                                      FontWeight.bold),
+                                ),
+                                IconButton(
+                                  onPressed: buyNow.quantity.value >=
+                                      product.stockQty
+                                      ? null
+                                      : buyNow.increaseQty,
+                                  icon: const Icon(Icons.add),
+                                ),
+                              ],
+                            )),
+                      ),
+                    ),
+
+                    const SizedBox(height: 100),
+                  ],
+                ),
               ),
             ),
 
-            /// 🔢 QUANTITY
+            /// 🔥 BOTTOM ONLY SAFE AREA
             SafeArea(
-              child: Obx(() => Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  IconButton(
-                    onPressed: buyNow.decreaseQty,
-                    icon: const Icon(Icons.remove),
-                  ),
-                  Text("${buyNow.quantity.value}",
-                      style: const TextStyle(fontSize: 18)),
-                  IconButton(
-                    onPressed: buyNow.increaseQty,
-                    icon: const Icon(Icons.add),
-                  ),
-                ],
-              )),
-            ),
-
-            const Spacer(),
-
-            /// 💰 BILL
-            SafeArea(
+              top: false,
               child: Container(
                 padding: const EdgeInsets.all(16),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(24)),
+                ),
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
 
                     _row("Subtotal", buyNow.total),
@@ -93,87 +182,99 @@ class BuyNowCheckoutScreen extends StatelessWidget {
 
                     const Divider(),
 
-                    _row("Total", buyNow.grandTotal, bold: true),
+                    _row("Total", buyNow.grandTotal,
+                        bold: true),
 
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
 
-                    /// 🔥 PLACE ORDER BUTTON
-                    Obx(() => SizedBox(
+                    /// BUTTON
+                    SizedBox(
                       width: double.infinity,
+                      height: 50,
                       child: ElevatedButton(
-                        onPressed: isPlacingOrder.value
+                        onPressed: product.stockQty == 0
                             ? null
                             : () async {
-                          isPlacingOrder.value = true;
+                          final name =
+                          nameController.text.trim();
+
+                          if (name.isEmpty) {
+                            Get.snackbar(
+                                "Error",
+                                "Customer name required");
+                            return;
+                          }
 
                           await _placeOrder(
-                            buyNow,
-                            auth,
-                          );
-
-                          isPlacingOrder.value = false;
+                              buyNow, auth, name);
                         },
-                        child: isPlacingOrder.value
-                            ? const CircularProgressIndicator()
-                            : const Text("Place Order"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor:
+                          const Color(0xFF6C5CE7),
+                          shape: RoundedRectangleBorder(
+                            borderRadius:
+                            BorderRadius.circular(14),
+                          ),
+                        ),
+                        child: const Text(
+                          "Place Order",
+                          style: TextStyle(
+                              color: Colors.white),
+                        ),
                       ),
-                    ))
+                    ),
                   ],
                 ),
               ),
-            )
+            ),
           ],
         );
       }),
     );
   }
 
-  Widget _row(String title, double value, {bool bold = false}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(title),
-        Text(
-          "₹${value.toStringAsFixed(2)}",
-          style: TextStyle(
-            fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+  Widget _row(String title, double value,
+      {bool bold = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment:
+        MainAxisAlignment.spaceBetween,
+        children: [
+          Text(title),
+          Text(
+            "₹${value.toStringAsFixed(2)}",
+            style: TextStyle(
+              fontWeight:
+              bold ? FontWeight.bold : FontWeight.normal,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
-  // ===========================
-  // 🚀 FINAL ORDER FLOW
-  // ===========================
-  Future<void> _placeOrder(
-      BuyNowController buyNow,
+  /// ===============================
+  /// 🚀 ORDER FLOW (FINAL FIXED)
+  /// ===============================
+  Future<void> _placeOrder(BuyNowController buyNow,
       AuthController auth,
-      ) async {
+      String customerName) async {
     final product = buyNow.product.value!;
     final qty = buyNow.quantity.value;
 
-    /// ❌ STOCK CHECK
-    if (qty > product.stockQty) {
-      Get.snackbar("Error", "Not enough stock");
-      return;
-    }
-
     final db = await DBHelper().db;
-    final orderId = DateTime.now().millisecondsSinceEpoch.toString();
-
-    /// 🔄 LOADER
-    Get.dialog(
-      const Center(child: CircularProgressIndicator()),
-      barrierDismissible: false,
-    );
+    final orderId =
+    DateTime
+        .now()
+        .millisecondsSinceEpoch
+        .toString();
 
     try {
-      // =========================
-      // ✅ 1. SAVE ORDER LOCAL
-      // =========================
+      /// LOCAL SAVE
       await db.insert('orders', {
         'o_id': orderId,
+        'customer_name': customerName,
         'total_amount': buyNow.grandTotal,
         'order_date': DateTime.now().toString(),
         'is_synced': 0,
@@ -186,9 +287,6 @@ class BuyNowCheckoutScreen extends StatelessWidget {
         'price_at_sale': product.price,
       });
 
-      // =========================
-      // ✅ 2. UPDATE LOCAL STOCK
-      // =========================
       await db.update(
         'products',
         {
@@ -199,68 +297,149 @@ class BuyNowCheckoutScreen extends StatelessWidget {
         whereArgs: [product.pId],
       );
 
-      // =========================
-      // ✅ 3. FIRESTORE
-      // =========================
-      if (product.docId != null && auth.currentShopId != null) {
-        final firestore = FirebaseFirestore.instance;
+      await Get.find<ProductController>()
+          .loadProducts();
 
-        final orderRef = firestore
-            .collection('users')
-            .doc(auth.currentShopId)
-            .collection('orders')
-            .doc(orderId);
-
-        final batch = firestore.batch();
-
-        batch.set(orderRef, {
-          'o_id': orderId,
-          'total_amount': buyNow.grandTotal,
-          'order_date': DateTime.now().toString(),
-        });
-
-        batch.set(orderRef.collection('items').doc(), {
-          'product_name': product.name,
-          'qty': qty,
-          'price': product.price,
-        });
-
-        final productRef = firestore
-            .collection('users')
-            .doc(auth.currentShopId)
-            .collection('products')
-            .doc(product.docId);
-
-        batch.update(productRef, {
-          'stock_qty': FieldValue.increment(-qty),
-        });
-
-        await batch.commit();
-      }
-
-      // =========================
-      // 🔄 REFRESH + SYNC
-      // =========================
-      await Get.find<ProductController>().loadProducts();
       SyncManager().scheduleSync();
 
-      /// ✅ CLOSE LOADER
-      Get.back();
+      final hasInternet = await _hasInternet();
 
-      /// 🎉 SUCCESS DIALOG + AUTO BACK
-      await Get.defaultDialog(
-        title: "Success 🎉",
-        middleText: "Order placed successfully",
-        textConfirm: "OK",
-        onConfirm: () {
-          Get.back(); // close dialog
-          Get.back(); // 🔥 back to product detail page
-        },
-      );
+      if (hasInternet) {
+        await _syncToCloud(
+            orderId, buyNow, auth, product, qty,
+            customerName);
+      }
 
+      _showResultDialog(isOnline: hasInternet);
     } catch (e) {
-      Get.back();
       Get.snackbar("Error", e.toString());
     }
+  }
+
+  /// INTERNET CHECK
+  Future<bool> _hasInternet() async {
+    try {
+      final result =
+      await InternetAddress.lookup('google.com');
+      return result.isNotEmpty;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// CLOUD SYNC
+  Future<void> _syncToCloud(String orderId,
+      BuyNowController buyNow,
+      AuthController auth,
+      product,
+      int qty,
+      String customerName) async {
+    try {
+      final firestore = FirebaseFirestore.instance;
+
+      final orderRef = firestore
+          .collection('users')
+          .doc(auth.currentShopId)
+          .collection('orders')
+          .doc(orderId);
+
+      await orderRef.set({
+        'customer_name': customerName,
+        'total_amount': buyNow.grandTotal,
+        'order_date': DateTime.now().toString(),
+        'is_synced': 1,
+      });
+
+      await orderRef.collection('items').add({
+        'product_name': product.name,
+        'qty': qty,
+        'price': product.price,
+      });
+    } catch (_) {}
+  }
+
+  /// SUCCESS DIALOG (PRO UI)
+  void _showResultDialog({required bool isOnline}) {
+    Get.dialog(
+      Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: 18,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+
+              /// ICON
+              Icon(
+                isOnline ? Icons.check_circle : Icons.cloud_off,
+                size: 40,
+                color: isOnline ? Colors.green : Colors.orange,
+              ),
+
+              const SizedBox(height: 10),
+
+              /// TITLE
+              Text(
+                isOnline ? "Order placed" : "Saved offline",
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+
+              const SizedBox(height: 4),
+
+              /// SUBTEXT
+              Text(
+                isOnline
+                    ? "Synced successfully"
+                    : "Will sync when online",
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey.shade600,
+                ),
+                textAlign: TextAlign.center,
+              ),
+
+              const SizedBox(height: 16),
+
+              /// BUTTON
+              SizedBox(
+                width: double.infinity,
+                height: 42,
+                child: ElevatedButton(
+                  onPressed: () {
+                    Get.back(); // dialog
+                    Get.back(); // screen
+                    Get.back(); // screen
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor:
+                    isOnline ? Colors.green : Colors.orange,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: const Text(
+                    "OK",
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      barrierDismissible: false,
+    );
   }
 }

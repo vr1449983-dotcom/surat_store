@@ -130,6 +130,7 @@ class DBHelper {
         shop_id TEXT,
         total_amount REAL,
         order_date TEXT,
+        customer_name TEXT,
         is_synced INTEGER DEFAULT 0
       )
     ''');
@@ -173,4 +174,5 @@ class DBHelper {
       CREATE INDEX idx_cart_shop ON cart(shop_id)
     ''');
   }
+
 }

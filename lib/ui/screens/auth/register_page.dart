@@ -187,14 +187,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: const [
                           Icon(Icons.person_add_alt_1_rounded,
-                              size: 22),
+                              size: 20,color: Colors.white,),
                           SizedBox(width: 10),
                           Text(
                             "CREATE ACCOUNT",
                             style: TextStyle(
-                              fontSize: 18,
+                              fontSize: 14,
                               fontWeight: FontWeight.w900,
-                              letterSpacing: 1.3,
+                               color: Colors.white,
                             ),
                           ),
                         ],
